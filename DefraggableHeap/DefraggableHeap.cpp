@@ -8,6 +8,8 @@
 #include <cassert>
 #include <algorithm>
 
+#include "BlockHeader.h"
+
 enum class AllocatorState : uint8_t
 {
 	ALLOCATED = 0, FREE = 1
@@ -516,7 +518,10 @@ protected:
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	DefraggableHeap n( 500 ); // 1GB
+	BlockHeader null;
+	BlockHeader x(1, 2, 15, AllocationState::ALLOCATED);
+
+	/*DefraggableHeap n( 500 ); // 1GB
 
 
 	auto p = n.Allocate( 4 );
@@ -544,7 +549,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	n.Free( p );
 	n.Free( p15 );
 
-	n.Defrag( );
+	n.Defrag( );*/
 
 	return 0;
 }
