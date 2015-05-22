@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include "BlockHeader.h"
+#include "AlignedAllocator.h"
 
 enum class AllocatorState : uint8_t
 {
@@ -520,6 +521,14 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	BlockHeader null;
 	BlockHeader x(1, 2, 15, AllocationState::ALLOCATED);
+
+	auto p = AlignedNew(1024, 16);
+	p = AlignedNew(23465, 16);
+	p = AlignedNew(123, 16);
+	p = AlignedNew(234, 16);
+	p = AlignedNew(101224, 16);
+
+	AlignedDelete(p);
 
 	/*DefraggableHeap n( 500 ); // 1GB
 

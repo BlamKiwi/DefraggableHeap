@@ -77,11 +77,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AlignedAllocator.h" />
     <ClInclude Include="BlockHeader.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AlignedAllocator.cpp" />
     <ClCompile Include="BlockHeader.cpp" />
     <ClCompile Include="DefraggableHeap.cpp" />
     <ClCompile Include="stdafx.cpp">
