@@ -27,6 +27,9 @@
     <ClInclude Include="AlignedAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SplayHeap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -40,6 +43,9 @@
     </ClCompile>
     <ClCompile Include="AlignedAllocator.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SplayHeap.cpp">
+      <Filter>Header Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

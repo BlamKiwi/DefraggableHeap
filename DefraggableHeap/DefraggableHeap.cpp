@@ -8,8 +8,9 @@
 #include <cassert>
 #include <algorithm>
 
-#include "BlockHeader.h"
-#include "AlignedAllocator.h"
+#include <iostream>
+
+#include "SplayHeap.h"
 
 enum class AllocatorState : uint8_t
 {
@@ -291,88 +292,6 @@ public:
 		}
 	}
 
-	/*void Insert( void *value )
-	{
-		auto new_node = new SplayNode( value, Null( ), Null( ), 0, AllocatorState::UNINITIALIZED );
-
-		if ( _root == Null( ) )
-		{
-			// Set children of new root to null
-			new_node->_right = new_node->_left = Null( );
-
-			// Set root to be the new node
-			_root = new_node;
-		}
-		else
-		{
-			// Splay closest matching value to root
-			_root = Splay( value, _root );
-
-			// Is the new value less than the closest value
-			if ( value < _root->_value )
-			{
-				// Left subtree is left untouched
-				new_node->_left = _root->_left;
-				_root->_left = Null( );
-
-				// Old root becomes new right subtree
-				new_node->_right = _root;
-
-				// Set new root
-				_root = new_node;
-			}
-			// Is the new value greater than the closest value
-			else if ( value > _root->_value )
-			{
-				// Right subtree is untouched
-				new_node->_right = _root->_right;
-				_root->_right = Null( );
-
-				// Old root becomes new left subtree
-				new_node->_left = _root;
-
-				// Set new root
-				_root = new_node;
-			}
-			// Duplicate value found
-			else
-			{
-				delete new_node;
-				throw std::runtime_error( "Duplicate value in splay tree" );
-			}
-		}
-	}
-
-	void Remove( void *value )
-	{
-		SplayNode *new_root;
-
-		// Splay closest matching value to root
-		_root = Splay( value, _root );
-
-		// Did we find our value?
-		if ( _root->_value != value || _root == Null( ) )
-			throw std::runtime_error( "Didn't find value in splay tree" );
-
-		// If left subtree is empty, desired value is at root (ie: minimum)
-		if ( _root->_left == Null( ) )
-			// Promote right subtree as root
-			new_root = _root->_right;
-		else
-		{
-			// Find max value in left subtree
-			new_root = _root->_left;
-			new_root = Splay( value, new_root );
-			new_root->_right = _root->_right;
-		}
-
-		// Delete existing root
-		delete _root;
-
-		// Update root
-		_root = new_root;
-	}*/
-
 protected:
 
 	SplayNode* Splay( void* value, SplayNode *t )
@@ -519,16 +438,10 @@ protected:
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	BlockHeader null;
-	BlockHeader x(1, 2, 15, AllocationState::ALLOCATED);
 
-	auto p = AlignedNew(1024, 16);
-	p = AlignedNew(23465, 16);
-	p = AlignedNew(123, 16);
-	p = AlignedNew(234, 16);
-	p = AlignedNew(101224, 16);
+	SplayHeap heap(127);
 
-	AlignedDelete(p);
+	std::cout << heap.FragmentationRatio() << std::endl;
 
 	/*DefraggableHeap n( 500 ); // 1GB
 
