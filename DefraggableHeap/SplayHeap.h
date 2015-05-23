@@ -55,10 +55,10 @@ protected:
 	*	Finds a free heap block of desired size.
 	*
 	*	@param t the node to start the search at
-	*	@param num_bytes the minimum numver of bytes required in the free block
+	*	@param num_chunks the minimum number of chunks required in the free block
 	*	@returns the free block
 	*/
-	IndexType FindFreeBlock(IndexType t, size_t num_bytes);
+	IndexType FindFreeBlock( IndexType t, size_t num_chunks );
 
 	/**
 	*	Splays the given value to the root of the tree.
@@ -70,20 +70,26 @@ protected:
 
 	/**
 	*	Updates the node statistics of a given node.
+	*
+	*	@param node the node to update the statistics for
 	*/
-	void UpdateNodeStatistics(IndexType node);
+	void UpdateNodeStatistics( BlockHeader &node );
 
 	/**
 	*	Rotates the given tree node with its left child.
 	*
 	*	@param k2 the node to rotate
+	*	@returns the index of the new parent
 	*/
-	static IndexType RotateWithLeftChild(IndexType k2);
+	IndexType RotateWithLeftChild(IndexType k2);
 
 	/**
 	*	Rotates the given tree node with its right child.
+	*
+	*	@param k2 the node to rotate
+	*	@returns the index of the new parent
 	*/
-	static IndexType RotateWithRightChild(IndexType k1);
+	IndexType RotateWithRightChild(IndexType k1);
 
 	/**< The data heap we manage. */
 	BlockHeader* _heap;
