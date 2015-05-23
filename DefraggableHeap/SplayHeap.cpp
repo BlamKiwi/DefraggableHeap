@@ -28,12 +28,12 @@ SplayHeap::SplayHeap(size_t size)
 	_heap = static_cast<BlockHeader*>(AlignedNew(total_size, 16));
 
 	// Setup the null sentinel node
-	new (&_heap[NULL_INDEX]) BlockHeader(NULL_INDEX, NULL_INDEX, 1, ALLOCATED);
+	new (&_heap[NULL_INDEX]) BlockHeader(NULL_INDEX, NULL_INDEX, 0, ALLOCATED);
 	UpdateNodeStatistics(_heap[NULL_INDEX]);
 
 	// Setup the root node
 	_root_index = NULL_INDEX + 1;
-	_free_chunks = _num_chunks - 1;
+	_free_chunks = _num_chunks - 2;
 	new (&_heap[_root_index]) BlockHeader(NULL_INDEX, NULL_INDEX, _free_chunks, FREE);
 	UpdateNodeStatistics(_heap[_root_index]);
 }
