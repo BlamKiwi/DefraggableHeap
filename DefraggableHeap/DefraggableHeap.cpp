@@ -441,6 +441,8 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	SplayHeap heap(127);
 
+	const auto val = heap.Allocate(31);
+
 	std::cout << heap.FragmentationRatio() << std::endl;
 
 	/*DefraggableHeap n( 500 ); // 1GB
