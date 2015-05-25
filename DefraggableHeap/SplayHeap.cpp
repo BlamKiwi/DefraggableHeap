@@ -19,14 +19,13 @@ SplayHeap::SplayHeap(size_t size)
 	assert(size >= 64);
 
 	// Get the total number of chunks we need
-	// We allocate an extra chunk as we need a valid value for a splay header
-	_num_chunks = (total_size / 16) + 1;
+	_num_chunks = total_size / 16;
 
 	// Can the total number of chunks be indexed bu a 31 bit unsigned integer.
 	assert(_num_chunks <= (IndexType(-1) >> 1));
 
 	// Allocate the system heap
-	_heap = static_cast<BlockHeader*>(AlignedNew(_num_chunks * 16, 16));
+	_heap = static_cast<BlockHeader*>(AlignedNew(total_size, 16));
 
 	// Setup the null sentinel node
 	new (&_heap[NULL_INDEX]) BlockHeader(NULL_INDEX, NULL_INDEX, 0, ALLOCATED);
