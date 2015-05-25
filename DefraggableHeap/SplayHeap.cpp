@@ -123,9 +123,6 @@ IndexType SplayHeap::RotateWithRightChild( IndexType k1 )
 
 IndexType SplayHeap::FindFreeBlock( IndexType t, size_t num_chunks )
 {
-	// We assume the tree already has a free block large enough
-	assert( _heap [ t ]._max_contiguous_free_chunks >= num_chunks );
-
 	// Traverse down tree until we find a free block large enough
 	while ( t != NULL_INDEX )
 	{
