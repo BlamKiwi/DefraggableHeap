@@ -105,4 +105,7 @@ protected:
 
 	/**< The offset of the null sentinel node into the heap. */
 	static const IndexType NULL_INDEX = 0;
+
+	/**< The offset of the splay header node into the heap. */
+	static const IndexType SPLAY_HEADER_INDEX = 1;
 };
