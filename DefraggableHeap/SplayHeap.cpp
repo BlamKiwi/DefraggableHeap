@@ -227,7 +227,7 @@ IndexType SplayHeap::Splay(IndexType value, IndexType t)
 	// Rebuild tree root
 	n._left = _heap[SPLAY_HEADER_INDEX]._right;
 	n._right = _heap[SPLAY_HEADER_INDEX]._left;
-	UpdateNodeStatistics(_heap[t]);
+	UpdateNodeStatistics(n);
 
 	return t;
 }
