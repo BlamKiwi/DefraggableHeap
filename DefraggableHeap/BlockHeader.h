@@ -59,7 +59,7 @@ struct BlockHeader
 		/**< Is the block allocated or unallocated. */
 		IndexType _is_allocated : 1;
 
-		/**< The number of chunks in the block we represent (excluding the header). */
+		/**< The number of chunks in the block we represent (including the header). */
 		IndexType _num_chunks : 31;
 
 	} _block_metadata;

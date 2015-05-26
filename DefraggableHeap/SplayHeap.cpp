@@ -35,7 +35,7 @@ SplayHeap::SplayHeap(size_t size)
 
 	// Setup the root node
 	_root_index = 2;
-	_free_chunks = _num_chunks - 3; // Null, Splay and Root Header, therefore -3
+	_free_chunks = _num_chunks - 2; // Null, Splay, therefore -2
 	new (&_heap[_root_index]) BlockHeader(NULL_INDEX, NULL_INDEX, _free_chunks, FREE);
 	UpdateNodeStatistics(_heap[_root_index]);
 }
@@ -238,10 +238,10 @@ void* SplayHeap::Allocate(size_t num_bytes)
 	if (!num_bytes)
 		return nullptr;
 
-	// Calculate the number of chunks required to fulfull the request
+	// Calculate the number of chunks required to fulfil the request
 	const size_t mask = 16 - 1;
 	const auto offset = (16 - (num_bytes & mask)) & mask;
-	const auto required_chunks = (num_bytes + offset) / 16;
+	const auto required_chunks = (num_bytes + offset) / 16 + 1;
 	assert(required_chunks);
 
 	// Do we have enough contiguous space for the allocation
@@ -268,7 +268,7 @@ void* SplayHeap::Allocate(size_t num_bytes)
 		auto &old_root = _heap[_root_index];
 
 		// Calculate the new free block offset
-		const auto new_free_index = _root_index + required_chunks + 1;
+		const auto new_free_index = _root_index + required_chunks;
 
 		// Create the header for the new free block
 		// New address value will always be bigger since 
@@ -277,10 +277,9 @@ void* SplayHeap::Allocate(size_t num_bytes)
 		new (&_heap[new_free_index]) BlockHeader(
 				_root_index, 
 				old_root._right,
-				raw_free_chunks - 1, 
+				raw_free_chunks, 
 				FREE
 			);
-		_free_chunks--;
 
 		// Clear right subtree of old root
 		old_root._right = NULL_INDEX;
