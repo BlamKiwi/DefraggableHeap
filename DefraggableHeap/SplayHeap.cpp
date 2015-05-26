@@ -154,18 +154,19 @@ IndexType SplayHeap::Splay(IndexType value, IndexType t)
 
 	// Simulate a null node with a reassignable value
 	IndexType lut[] = { value, NULL_INDEX };
+	auto lookup = [&](IndexType v) { 
+		lut[1] = v;
+		return lut[bool(v)]; 
+	};
 
 	// Continually rotate the tree until we splay the desired value
 	while (true)
 	{
-		// Update lut value to new t
-		lut[1] = t;
-
 		// Is the desired value in the left subtree
-		if (value < lut[bool(t)])
+		if (value < lookup(t))
 		{
 			// If the desired value is in the left subtree of the left child
-			if (value < lut[bool(_heap[t]._left)])
+			if (value < lookup(_heap[t]._left))
 				// Rotate left subtree up
 				t = RotateWithLeftChild(t);
 
@@ -186,10 +187,10 @@ IndexType SplayHeap::Splay(IndexType value, IndexType t)
 			t = n._left;
 		}
 		// Is the desired value in the right subtree
-		else if (value > lut[bool(t)])
+		else if (value > lookup(t))
 		{
 			// If the desired value is in the right subtree of the right child
-			if (value > lut[bool(_heap[t]._right)])
+			if (value > lookup(_heap[t]._right))
 				// Rotate right subtree up
 				t = RotateWithRightChild(t);
 
