@@ -442,6 +442,9 @@ int _tmain(int argc, _TCHAR* argv[])
 	SplayHeap heap(127);
 
 	const auto val = heap.Allocate(31);
+	const auto val2 = heap.Allocate(8);
+	heap.Free(val);
+	heap.Free(val2);
 
 	std::cout << heap.FragmentationRatio() << std::endl;
 

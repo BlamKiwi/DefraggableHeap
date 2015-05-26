@@ -251,6 +251,7 @@ void* SplayHeap::Allocate(size_t num_bytes)
 	// Splay the found free block to the root
 	const auto free_block = FindFreeBlock(_root_index, required_chunks);
 	_root_index = Splay(free_block, _root_index);
+	assert(_root_index != NULL_INDEX);
 
 	/* Split the root free block into two, one allocated block and one free block */
 
@@ -259,7 +260,8 @@ void* SplayHeap::Allocate(size_t num_bytes)
 		- required_chunks;
 
 	// Set the root so that it represents a now allocated block
-	_heap[_root_index]._block_metadata = { ALLOCATED, required_chunks };
+	const auto old_index = _root_index;
+	_heap[old_index]._block_metadata = { ALLOCATED, required_chunks };
 	_free_chunks -= required_chunks;
 
 	// Is there a new free block to add to the tree
@@ -295,5 +297,77 @@ void* SplayHeap::Allocate(size_t num_bytes)
 	UpdateNodeStatistics(_heap[_root_index]);
 
 	// Possible strict aliasing problem?
-	return &_heap[_root_index + 1];
+	return &_heap[old_index + 1];
+}
+
+void SplayHeap::Free(void* data)
+{
+	// We cannot free the null pointer
+	if (!data)
+		return;
+
+	// Get the offset of the pointer into the heap
+	const auto block_addr = static_cast<BlockHeader*>(data);
+	const std::ptrdiff_t offset = block_addr - _heap;
+
+	// Is the offset in a valid range
+	if (offset < 0 || offset >= _num_chunks)
+		return;
+
+	// Is the data pointer of expected alignment
+	if (block_addr != &_heap[offset])
+		return;
+
+	// Splay the block to free to the root of the tree
+	_root_index = Splay(offset - 1, _root_index);
+
+	// Mark the root as being free
+	_heap[_root_index]._block_metadata._is_allocated = FREE;
+	_free_chunks += _heap[_root_index]._block_metadata._num_chunks;
+
+	// We may have invalidated our invariant of having no two free adjacent blocks
+	// Collapse adjacent free blocks in the heap to restore the invariant
+	// Does the left subtree contain any potential free blocks
+	if (_heap[_heap[_root_index]._left]._max_contiguous_free_chunks)
+	{
+		// Splay the previous heap block to the root of the tree
+		auto left = Splay(_root_index, _heap[_root_index]._left);
+
+		// Is the root of the left subtree a free block
+		if (!_heap[left]._block_metadata._is_allocated)
+		{
+			// Copy down block metadata and right subtree
+			_heap[left]._right = _heap[_root_index]._right;
+			_heap[left]._block_metadata._num_chunks += 
+				_heap[_root_index]._block_metadata._num_chunks;
+			
+			// Make the left root the new tree root
+			_root_index = left;
+		}
+		// Previous block is allocated, fix up pointers
+		else
+			_heap[_root_index]._left = left;
+	}
+
+	// Does the right subtree contain any potential free blocks
+	if (_heap[_heap[_root_index]._right]._max_contiguous_free_chunks)
+	{
+		// Splay the minimum value up from the right subtree
+		auto right = Splay(_root_index, _heap[_root_index]._right);
+
+		// Is the root of the right subtree a free block
+		if (!_heap[right]._block_metadata._is_allocated)
+		{
+			// Copy up block metadata and new right subtree
+			_heap[_root_index]._right = _heap[right]._right;
+			_heap[_root_index]._block_metadata._num_chunks += 
+				_heap[right]._block_metadata._num_chunks;
+		}
+		// Next block is allocated, fix up pointers
+		else
+			_heap[_root_index]._right = right;
+	}
+
+	// Update root node statistics
+	UpdateNodeStatistics(_heap[_root_index]);
 }
