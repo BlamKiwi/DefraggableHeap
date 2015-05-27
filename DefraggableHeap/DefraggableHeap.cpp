@@ -12,6 +12,8 @@
 
 #include "SplayHeap.h"
 
+#include "DefraggablePointer.h"
+
 enum class AllocatorState : uint8_t
 {
 	ALLOCATED = 0, FREE = 1
@@ -448,7 +450,10 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	heap.IterateHeap();
 
-	std::cout << heap.FragmentationRatio() << std::endl;
+	std::cout << std::is_trivially_copyable<DefraggablePointerControlBlock>::value << std::endl;
+
+	DefraggablePointerControlBlock ptr;
+	ptr = nullptr;
 
 	/*DefraggableHeap n( 500 ); // 1GB
 
