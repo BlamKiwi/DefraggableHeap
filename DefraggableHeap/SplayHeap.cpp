@@ -3,6 +3,8 @@
 #include "SplayHeap.h"
 #include "AlignedAllocator.h"
 
+#include "SIMDMem.h"
+
 #include <cassert>
 #include <new>
 #include <algorithm>
@@ -10,13 +12,13 @@
 SplayHeap::SplayHeap(size_t size)
 {
 	// Make sure heap size is multiples of 16 bytes
-	const size_t mask = 16 - 1;
+	static const size_t mask = 16 - 1;
 	const auto offset = ( 16 - ( size & mask ) ) & mask;
 	const auto total_size = size + offset;
 	assert(total_size % 16 == 0);
 
 	// A heap of <64 bytes is undefined
-	assert(size >= 64);
+	assert(total_size >= 64);
 
 	// Get the total number of chunks we need
 	_num_chunks = total_size / 16;
@@ -38,6 +40,11 @@ SplayHeap::SplayHeap(size_t size)
 	_free_chunks = _num_chunks - 2; // Null, Splay, therefore -2
 	new (&_heap[_root_index]) BlockHeader(NULL_INDEX, NULL_INDEX, _free_chunks, FREE);
 	UpdateNodeStatistics(_heap[_root_index]);
+
+	// Debug set free chunks in the heap
+	if (_DEBUG)
+		SIMDMemSet(&_heap[_root_index + 1], INIT_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+
 }
 
 void SplayHeap::UpdateNodeStatistics(BlockHeader &node)
@@ -64,7 +71,7 @@ float SplayHeap::FragmentationRatio() const
 {
 	// Heap is not fragmented if we are at full load
 	// This doesn't take into account free blocks of 0 size that might exist
-	if (_free_chunks == 0)
+	if (!_free_chunks)
 		return 0.0f;
 
 	// Get free chunks statistics
@@ -124,10 +131,14 @@ IndexType SplayHeap::RotateWithRightChild( IndexType k1 )
 	return k2;
 }
 
-IndexType SplayHeap::FindFreeBlock( IndexType t, size_t num_chunks )
+IndexType SplayHeap::FindFreeBlock( IndexType t, IndexType num_chunks )
 {
+	// Is there even enough space in the tree to make an allocation
+	if (_heap[t]._max_contiguous_free_chunks < num_chunks)
+		return NULL_INDEX;
+
 	// Traverse down tree until we find a free block large enough
-	while ( t != NULL_INDEX )
+	while ( t )
 	{
 		auto &n = _heap [ t ];
 
@@ -251,8 +262,8 @@ void* SplayHeap::Allocate(size_t num_bytes)
 
 	// Splay the found free block to the root
 	const auto free_block = FindFreeBlock(_root_index, required_chunks);
+	assert(free_block);
 	_root_index = Splay(free_block, _root_index);
-	assert(_root_index != NULL_INDEX);
 
 	/* Split the root free block into two, one allocated block and one free block */
 
@@ -264,6 +275,9 @@ void* SplayHeap::Allocate(size_t num_bytes)
 	const auto old_index = _root_index;
 	_heap[old_index]._block_metadata = { ALLOCATED, required_chunks };
 	_free_chunks -= required_chunks;
+
+	if (_DEBUG)
+		SIMDMemSet(&_heap[_root_index + 1], ALLOC_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
 
 	// Is there a new free block to add to the tree
 	if (raw_free_chunks)
@@ -292,6 +306,10 @@ void* SplayHeap::Allocate(size_t num_bytes)
 
 		// Set new root
 		_root_index = new_free_index;
+
+		if (_DEBUG)
+			SIMDMemSet(&_heap[_root_index + 1], SPLIT_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+
 	}
 
 	// Update root node statistics
@@ -326,6 +344,9 @@ void SplayHeap::Free(void* data)
 	_heap[_root_index]._block_metadata._is_allocated = FREE;
 	_free_chunks += _heap[_root_index]._block_metadata._num_chunks;
 
+	if (_DEBUG)
+		SIMDMemSet(&_heap[_root_index + 1], FREED_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+
 	// We may have invalidated our invariant of having no two free adjacent blocks
 	// Collapse adjacent free blocks in the heap to restore the invariant
 	// Does the left subtree contain any potential free blocks
@@ -344,6 +365,9 @@ void SplayHeap::Free(void* data)
 			
 			// Make the left root the new tree root
 			_root_index = left;
+
+			if (_DEBUG)
+				SIMDMemSet(&_heap[_root_index + 1], MERGE_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
 		}
 		// Previous block is allocated, fix up pointers
 		else
@@ -363,6 +387,9 @@ void SplayHeap::Free(void* data)
 			_heap[_root_index]._right = _heap[right]._right;
 			_heap[_root_index]._block_metadata._num_chunks += 
 				_heap[right]._block_metadata._num_chunks;
+
+			if (_DEBUG)
+				SIMDMemSet(&_heap[_root_index + 1], MERGE_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
 		}
 		// Next block is allocated, fix up pointers
 		else
@@ -371,4 +398,69 @@ void SplayHeap::Free(void* data)
 
 	// Update root node statistics
 	UpdateNodeStatistics(_heap[_root_index]);
+}
+
+void SplayHeap::FullDefrag()
+{
+	while (!IterateHeap())
+		;
+}
+
+bool SplayHeap::IsFullyDefragmented() const
+{
+	return _heap[_root_index]._max_contiguous_free_chunks != _free_chunks;
+}
+
+bool SplayHeap::IterateHeap()
+{
+	// Do we actually need to defrag the heap
+	if (IsFullyDefragmented())
+		return true;
+
+	// Splay the first free block in the heap to the root
+	// This will put the fully defragmented subheap in the left subtree
+	const auto free_block = FindFreeBlock(_root_index, 1);
+	_root_index = Splay(free_block, _root_index);
+	
+	// Splay the next block in the heap up from the right subtree
+	auto right = Splay(_root_index + 1, _heap[_root_index]._right);
+	assert(!_heap[right]._left);
+
+	// The heap invariant means the next block must be allocated
+	assert(_heap[right]._block_metadata._is_allocated);
+
+	auto &root = _heap[_root_index];
+	auto &n = _heap[right];
+
+	// Create new free block header
+	BlockHeader new_free(NULL_INDEX, n._right, root._block_metadata._num_chunks, FREE);
+	const auto new_free_offset = _root_index + root._block_metadata._num_chunks;
+
+	// Create new allocated block header
+	BlockHeader new_allocated(root._left, new_free_offset, n._block_metadata._num_chunks, ALLOCATED);
+
+	/* CONSIDER THE HEAP INVALID FROM HERE */
+
+	// Copy new allocated block header and move the data
+	SIMDMemCopy(&_heap[_root_index], &new_allocated, 1);
+	SIMDMemCopy(&_heap[_root_index + 1], &_heap[right + 1], 
+		new_allocated._block_metadata._num_chunks - 1);
+
+	// Copy new free block header
+	SIMDMemCopy(&_heap[new_free_offset], &new_free, 1);
+
+	/* HEAP IS NOW VALID */
+
+	// Update new node statistics
+	UpdateNodeStatistics(_heap[new_free_offset]);
+	UpdateNodeStatistics(_heap[_root_index]);
+
+	// Rotate right child up to root
+	_root_index = RotateWithRightChild(_root_index);
+
+	if (_DEBUG)
+		SIMDMemSet(&_heap[_root_index + 1], MOVE_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+
+
+	return IsFullyDefragmented( );
 }

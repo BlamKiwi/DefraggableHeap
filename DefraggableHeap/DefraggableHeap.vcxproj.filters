@@ -30,6 +30,9 @@
     <ClInclude Include="SplayHeap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SIMDMem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -45,6 +48,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SplayHeap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SIMDMem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

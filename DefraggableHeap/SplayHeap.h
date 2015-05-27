@@ -38,9 +38,17 @@ public:
 	void Free(void* data);
 
 	/**
-	*	Defragments the heap.
+	*	Fully Defragments the heap.
 	*/
-	void Defrag();
+	void FullDefrag();
+
+	/**
+	*	Iterates the defragmentation process on the heap.
+	*	Heap is still valid for use after a call to this method. 
+	*
+	*	@returns true if the heap is now fully defragmented
+	*/
+	bool IterateHeap();
 
 	/**
 	*	Gets the fragmentation ratio of the heap.
@@ -48,6 +56,13 @@ public:
 	*	@returns 0 if no fragmentation, 1 if fully fragmented
 	*/
 	float FragmentationRatio() const;
+
+	/**
+	*	Gets if the heap is fully defragmented.
+	*
+	*	@returns true if fully defragmented, false if there is fragmentation
+	*/
+	bool IsFullyDefragmented() const;
 
 protected:
 
@@ -58,7 +73,7 @@ protected:
 	*	@param num_chunks the minimum number of chunks required in the free block
 	*	@returns the free block
 	*/
-	IndexType FindFreeBlock( IndexType t, size_t num_chunks );
+	IndexType FindFreeBlock( IndexType t, IndexType num_chunks );
 
 	/**
 	*	Splays the given value to the root of the tree.
@@ -108,4 +123,22 @@ protected:
 
 	/**< The offset of the splay header node into the heap. */
 	static const IndexType SPLAY_HEADER_INDEX = 1;
+
+	/**< The pattern initial blocks should be set to */
+	static const int INIT_PATTERN = 0x12345678;
+
+	/**< The pattern allocated blocks should be set to */
+	static const int ALLOC_PATTERN = 0xACACACAC;
+
+	/**< The pattern merged blocks should be set to */
+	static const int MERGE_PATTERN = 0xDDDDDDDD;
+
+	/**< The pattern freed blocks should be set to */
+	static const int FREED_PATTERN = 0xFEEFEEFE;
+
+	/**< The pattern stale moved blocks should be set to */
+	static const int MOVE_PATTERN = 0xDEADB0B1;
+
+	/**< The pattern free blocks from an allocation split should be set to. */
+	static const int SPLIT_PATTERN = 0x51775177;
 };
