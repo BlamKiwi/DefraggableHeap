@@ -443,8 +443,8 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	SplayHeap heap(127);
 
-	const auto val = heap.Allocate(8);
-	const auto val2 = heap.Allocate(16);
+	const auto val = heap.Allocate(16);
+	const auto val2 = heap.Allocate(32);
 	heap.Free(val);
 	//heap.Free(val2);
 

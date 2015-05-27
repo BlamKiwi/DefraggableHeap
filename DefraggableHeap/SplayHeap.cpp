@@ -253,7 +253,7 @@ void* SplayHeap::Allocate(size_t num_bytes)
 	// Calculate the number of chunks required to fulfil the request
 	const size_t mask = 16 - 1;
 	const auto offset = (16 - (num_bytes & mask)) & mask;
-	const auto required_chunks = (num_bytes + offset) / 16 + 1;
+	const auto required_chunks = ((num_bytes + offset) / 16) + 1;
 	assert(required_chunks);
 
 	// Do we have enough contiguous space for the allocation
@@ -434,7 +434,7 @@ bool SplayHeap::IterateHeap()
 
 	// Create new free block header
 	BlockHeader new_free(NULL_INDEX, n._right, root._block_metadata._num_chunks, FREE);
-	const auto new_free_offset = _root_index + root._block_metadata._num_chunks;
+	const auto new_free_offset = _root_index + n._block_metadata._num_chunks;
 
 	// Create new allocated block header
 	BlockHeader new_allocated(root._left, new_free_offset, n._block_metadata._num_chunks, ALLOCATED);
