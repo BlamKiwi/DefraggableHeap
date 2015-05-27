@@ -136,7 +136,7 @@ protected:
 	/**< The pattern freed blocks should be set to */
 	static const int FREED_PATTERN = 0xFEEFEEFE;
 
-	/**< The pattern stale moved blocks should be set to */
+	/**< The pattern moved freed blocks should be set to */
 	static const int MOVE_PATTERN = 0xDEADB0B1;
 
 	/**< The pattern free blocks from an allocation split should be set to. */
