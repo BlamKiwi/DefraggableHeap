@@ -408,7 +408,7 @@ void SplayHeap::FullDefrag()
 
 bool SplayHeap::IsFullyDefragmented() const
 {
-	return _heap[_root_index]._max_contiguous_free_chunks != _free_chunks;
+	return _heap[_root_index]._max_contiguous_free_chunks == _free_chunks;
 }
 
 bool SplayHeap::IterateHeap()
@@ -426,7 +426,7 @@ bool SplayHeap::IterateHeap()
 	auto right = Splay(_root_index + 1, _heap[_root_index]._right);
 	assert(!_heap[right]._left);
 
-	// The heap invariant means the next block must be allocated
+	// Our heap invariant means the next block must be allocated
 	assert(_heap[right]._block_metadata._is_allocated);
 
 	auto &root = _heap[_root_index];
@@ -461,6 +461,31 @@ bool SplayHeap::IterateHeap()
 	if (_DEBUG)
 		SIMDMemSet(&_heap[_root_index + 1], MOVE_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
 
+	// We possibly invalidated out heap invariant
+	// Does the right subtree contain any potential free blocks
+	if (_heap[_heap[_root_index]._right]._max_contiguous_free_chunks)
+	{
+		// Splay the minimum value up from the right subtree
+		auto right = Splay(_root_index, _heap[_root_index]._right);
+
+		// Is the root of the right subtree a free block
+		if (!_heap[right]._block_metadata._is_allocated)
+		{
+			// Copy up block metadata and new right subtree
+			_heap[_root_index]._right = _heap[right]._right;
+			_heap[_root_index]._block_metadata._num_chunks +=
+				_heap[right]._block_metadata._num_chunks;
+
+			// Update root node statistics
+			UpdateNodeStatistics(_heap[_root_index]);
+
+			if (_DEBUG)
+				SIMDMemSet(&_heap[_root_index + 1], MERGE_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+		}
+		// Next block is allocated, fix up pointers
+		else
+			_heap[_root_index]._right = right;
+	}
 
 	return IsFullyDefragmented( );
 }
