@@ -12,8 +12,6 @@
 
 #include "SplayHeap.h"
 
-#include "DefraggablePointer.h"
-
 enum class AllocatorState : uint8_t
 {
 	ALLOCATED = 0, FREE = 1
@@ -443,14 +441,20 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	SplayHeap heap(127);
 
-	const auto val = heap.Allocate(16);
-	const auto val2 = heap.Allocate(32);
+	auto val = heap.Allocate(16);
+	auto val2 = heap.Allocate(32);
 	heap.Free(val);
 	//heap.Free(val2);
 
+	int* x = reinterpret_cast<int*>(val2.Get());
+
+	*x = 6666;
+
 	heap.IterateHeap();
 
-	std::cout << std::is_trivially_copyable<DefraggablePointerControlBlock>::value << std::endl;
+	//x = reinterpret_cast<int*>(val2.Get());
+
+	std::cout << *x << std::endl;
 
 	DefraggablePointerControlBlock ptr;
 	ptr = nullptr;

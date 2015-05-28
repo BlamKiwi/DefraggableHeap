@@ -10,6 +10,7 @@
 #include <algorithm>
 
 SplayHeap::SplayHeap(size_t size)
+	: _pointer_root(nullptr, &_pointer_root, &_pointer_root)
 {
 	// Make sure heap size is multiples of 16 bytes
 	static const size_t mask = 16 - 1;
@@ -244,7 +245,7 @@ IndexType SplayHeap::Splay(IndexType value, IndexType t)
 	return t;
 }
 
-void* SplayHeap::Allocate(size_t num_bytes)
+DefraggablePointerControlBlock SplayHeap::Allocate(size_t num_bytes)
 {
 	// An allocation of 0 bytes is redundant
 	if (!num_bytes)
@@ -316,11 +317,15 @@ void* SplayHeap::Allocate(size_t num_bytes)
 	UpdateNodeStatistics(_heap[_root_index]);
 
 	// Possible strict aliasing problem?
-	return &_heap[old_index + 1];
+	DefraggablePointerControlBlock new_ptr(_pointer_root);
+	new_ptr.Set( &_heap[old_index + 1]);
+	return new_ptr;
 }
 
-void SplayHeap::Free(void* data)
+void SplayHeap::Free(DefraggablePointerControlBlock& ptr)
 {
+	void* data = ptr.Get();
+
 	// We cannot free the null pointer
 	if (!data)
 		return;
@@ -343,6 +348,9 @@ void SplayHeap::Free(void* data)
 	// Mark the root as being free
 	_heap[_root_index]._block_metadata._is_allocated = FREE;
 	_free_chunks += _heap[_root_index]._block_metadata._num_chunks;
+
+	// Invalidate defraggable pointers that point into the root block before we invalidate data in the heap
+	RemovePointersInRange(_root_index, _root_index + _heap[_root_index]._block_metadata._num_chunks);
 
 	if (_DEBUG)
 		SIMDMemSet(&_heap[_root_index + 1], FREED_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
@@ -432,6 +440,9 @@ bool SplayHeap::IterateHeap()
 	auto &root = _heap[_root_index];
 	auto &n = _heap[right];
 
+	// Update defraggable pointers before invalidating the heap
+	OffsetPointersInRange(right, right + n._block_metadata._num_chunks, _root_index - right);
+
 	// Create new free block header
 	BlockHeader new_free(NULL_INDEX, n._right, root._block_metadata._num_chunks, FREE);
 	const auto new_free_offset = _root_index + n._block_metadata._num_chunks;
@@ -488,4 +499,70 @@ bool SplayHeap::IterateHeap()
 	}
 
 	return IsFullyDefragmented( );
+}
+
+void SplayHeap::RemovePointersInRange(IndexType lower_bound, IndexType upper_bound)
+{
+	// Get bounds as raw address values
+	intptr_t lower = intptr_t(&_heap[lower_bound]);
+	intptr_t upper = intptr_t(&_heap[upper_bound]);
+
+	const DefraggablePointerControlBlock * const root = &_pointer_root;
+	DefraggablePointerControlBlock *n = &_pointer_root;
+
+	// While we have not wrapped around to the beginning in the management list
+	// Remove pointers that point into the range specified
+	while (n->_next != root)
+	{
+		auto &next = *n->_next;
+		intptr_t addr = intptr_t(next._data);
+
+		// Does the address lie in the range to remove
+		if (addr >= lower && addr < upper)
+		{
+			// Remove the node from the list
+			next.Remove();
+		}
+		else
+			// Go to the next node
+			n = n->_next;
+	}
+}
+
+void SplayHeap::OffsetPointersInRange(IndexType lower_bound, IndexType upper_bound, intptr_t offset)
+{
+	// Get bounds as raw address values
+	intptr_t lower = intptr_t(&_heap[lower_bound]);
+	intptr_t upper = intptr_t(&_heap[upper_bound]);
+
+	const DefraggablePointerControlBlock * const root = &_pointer_root;
+	DefraggablePointerControlBlock *n = &_pointer_root;
+
+	const intptr_t raw_offset = offset * 16;
+
+	// While we have not wrapped around to the beginning in the management list
+	// Offset pointers that point into the range specified
+	do 
+	{
+		// Cache the next pointer before modifying the current list item
+		auto next = n->_next;
+
+		// Does the data address lie in the range to offset
+		intptr_t addr = intptr_t(n->_data);
+		if (addr >= lower && addr < upper)
+			n->_data = reinterpret_cast<void*>(addr + raw_offset);
+		
+		// Does the next address lie in the range to offset
+		addr = intptr_t(n->_next);
+		if (addr >= lower && addr < upper)
+			n->_next = reinterpret_cast<DefraggablePointerControlBlock*>(addr + raw_offset);
+
+		// Does the previous address lie in the range to offset
+		addr = intptr_t(n->_prev);
+		if (addr >= lower && addr < upper)
+			n->_prev = reinterpret_cast<DefraggablePointerControlBlock*>(addr + raw_offset);
+
+		// Go to the next node
+		n = next;
+	} while (n != root);
 }
