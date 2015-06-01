@@ -1,6 +1,6 @@
 #pragma once
 
-#include "DefraggablePointer.h"
+#include "DefraggablePointerControlBlock.h"
 
 #include "HeapCommon.h"
 

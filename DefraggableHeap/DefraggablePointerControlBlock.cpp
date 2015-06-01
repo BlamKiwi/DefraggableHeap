@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-#include "DefraggablePointer.h"
+#include "DefraggablePointerControlBlock.h"
 
 #include <cassert>
 

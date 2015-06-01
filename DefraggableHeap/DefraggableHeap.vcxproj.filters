@@ -30,13 +30,13 @@
     <ClInclude Include="SIMDMem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DefraggablePointer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="SplayHeader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="HeapCommon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DefraggablePointerControlBlock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -56,10 +56,10 @@
     <ClCompile Include="SIMDMem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DefraggablePointer.cpp">
+    <ClCompile Include="SplayHeader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SplayHeader.cpp">
+    <ClCompile Include="DefraggablePointerControlBlock.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
