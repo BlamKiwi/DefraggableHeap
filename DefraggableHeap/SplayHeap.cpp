@@ -10,7 +10,7 @@
 #include <algorithm>
 
 
-#include "BlockHeader.h"
+#include "SplayHeader.h"
 
 SplayHeap::SplayHeap(size_t size)
 	: _pointer_root(nullptr, &_pointer_root, &_pointer_root)
@@ -31,10 +31,10 @@ SplayHeap::SplayHeap(size_t size)
 	assert(_num_chunks <= (IndexType(-1) >> 1));
 
 	// Allocate the system heap
-	_heap = static_cast<BlockHeader*>(AlignedNew(total_size, 16));
+	_heap = static_cast<SplayHeader*>(AlignedNew(total_size, 16));
 
 	// Setup the null sentinel node
-	new (&_heap[NULL_INDEX]) BlockHeader(NULL_INDEX, NULL_INDEX, 0, ALLOCATED);
+	new (&_heap[NULL_INDEX]) SplayHeader(NULL_INDEX, NULL_INDEX, 0, ALLOCATED);
 	UpdateNodeStatistics(_heap[NULL_INDEX]);
 
 	/* Splay header can be left unallocated */
@@ -42,7 +42,7 @@ SplayHeap::SplayHeap(size_t size)
 	// Setup the root node
 	_root_index = 2;
 	_free_chunks = _num_chunks - 2; // Null, Splay, therefore -2
-	new (&_heap[_root_index]) BlockHeader(NULL_INDEX, NULL_INDEX, _free_chunks, FREE);
+	new (&_heap[_root_index]) SplayHeader(NULL_INDEX, NULL_INDEX, _free_chunks, FREE);
 	UpdateNodeStatistics(_heap[_root_index]);
 
 	// Debug set free chunks in the heap
@@ -51,7 +51,7 @@ SplayHeap::SplayHeap(size_t size)
 
 }
 
-void SplayHeap::UpdateNodeStatistics(BlockHeader &node)
+void SplayHeap::UpdateNodeStatistics(SplayHeader &node)
 {
 	// The maximum free contiguous block for the current node
 	// is a 3 way maximum of of children and max of self if we are a free block
@@ -164,7 +164,7 @@ IndexType SplayHeap::FindFreeBlock( IndexType t, IndexType num_chunks )
 IndexType SplayHeap::Splay(IndexType value, IndexType t)
 {
 	// Setup splay tracking state
-	new (&_heap[SPLAY_HEADER_INDEX]) BlockHeader(NULL_INDEX, NULL_INDEX, 0, ALLOCATED);
+	new (&_heap[SPLAY_HEADER_INDEX]) SplayHeader(NULL_INDEX, NULL_INDEX, 0, ALLOCATED);
 	IndexType left_tree_max = SPLAY_HEADER_INDEX, right_tree_min = SPLAY_HEADER_INDEX;
 
 	// Simulate a null node with a reassignable value
@@ -295,7 +295,7 @@ DefraggablePointerControlBlock SplayHeap::Allocate(size_t num_bytes)
 		// New address value will always be bigger since 
 		// we allocate to the lower adresses
 		// Right subtree is untouched
-		new (&_heap[new_free_index]) BlockHeader(
+		new (&_heap[new_free_index]) SplayHeader(
 				_root_index, 
 				old_root._right,
 				raw_free_chunks, 
@@ -334,7 +334,7 @@ void SplayHeap::Free(DefraggablePointerControlBlock& ptr)
 		return;
 
 	// Get the offset of the pointer into the heap
-	const auto block_addr = static_cast<BlockHeader*>(data);
+	const auto block_addr = static_cast<SplayHeader*>(data);
 	const std::ptrdiff_t offset = block_addr - _heap;
 
 	// Is the offset in a valid range
@@ -447,11 +447,11 @@ bool SplayHeap::IterateHeap()
 	OffsetPointersInRange(right, right + n._block_metadata._num_chunks, _root_index - right);
 
 	// Create new free block header
-	BlockHeader new_free(NULL_INDEX, n._right, root._block_metadata._num_chunks, FREE);
+	SplayHeader new_free(NULL_INDEX, n._right, root._block_metadata._num_chunks, FREE);
 	const auto new_free_offset = _root_index + n._block_metadata._num_chunks;
 
 	// Create new allocated block header
-	BlockHeader new_allocated(root._left, new_free_offset, n._block_metadata._num_chunks, ALLOCATED);
+	SplayHeader new_allocated(root._left, new_free_offset, n._block_metadata._num_chunks, ALLOCATED);
 
 	/* CONSIDER THE HEAP INVALID FROM HERE */
 

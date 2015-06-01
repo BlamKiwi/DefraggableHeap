@@ -21,9 +21,6 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="BlockHeader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="AlignedAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -36,7 +33,10 @@
     <ClInclude Include="DefraggablePointer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="HeapTypes.h">
+    <ClInclude Include="SplayHeader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HeapCommon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -45,9 +45,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DefraggableHeap.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="BlockHeader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="AlignedAllocator.cpp">
@@ -60,6 +57,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DefraggablePointer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SplayHeader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -2,9 +2,9 @@
 
 #include "DefraggablePointer.h"
 
-#include "HeapTypes.h"
+#include "HeapCommon.h"
 
-class BlockHeader;
+class SplayHeader;
 
 /**
 *	A defraggable heap implemented as a splay tree.
@@ -93,7 +93,7 @@ protected:
 	*
 	*	@param node the node to update the statistics for
 	*/
-	void UpdateNodeStatistics( BlockHeader &node );
+	void UpdateNodeStatistics( SplayHeader &node );
 
 	/**
 	*	Rotates the given tree node with its left child.
@@ -131,7 +131,7 @@ protected:
 	void OffsetPointersInRange(IndexType lower_bound, IndexType upper_bound, ptrdiff_t offset);
 
 	/**< The data heap we manage. */
-	BlockHeader* _heap;
+	SplayHeader* _heap;
 
 	/**< The number of chunks in the heap. */
 	IndexType _num_chunks;
