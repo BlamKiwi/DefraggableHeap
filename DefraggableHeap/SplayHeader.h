@@ -40,8 +40,6 @@ _declspec(align(16)) struct SplayHeader
 
 	/**< The local maximum number of contiguous free chunks in the heap. */
 	IndexType _max_contiguous_free_chunks;
-
-	static_assert(sizeof(_block_metadata) == sizeof(IndexType), "The metadata field must be the size of the index type.");
 };
 
 static_assert(sizeof(SplayHeader) == 16, "The block header needs to be 16 bytes in size.");

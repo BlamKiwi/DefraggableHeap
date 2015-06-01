@@ -30,3 +30,5 @@ struct BlockMetadata
 	IndexType _num_chunks : 31;
 
 };
+
+static_assert(sizeof(BlockMetadata) == sizeof(IndexType), "The metadata field must be the size of the index type.");
