@@ -1,7 +1,6 @@
 #pragma once
 
-#include "DefraggablePointerControlBlock.h"
-
+#include "DefraggablePointerList.h"
 #include "HeapCommon.h"
 
 class SplayHeader;
@@ -111,25 +110,6 @@ protected:
 	*/
 	IndexType RotateWithRightChild(IndexType k1);
 
-	/**
-	*	Removes defraggable pointers that this heap manages that point into
-	*	the given heap range. 
-	*
-	*	@param lower_bound the inclusive lower bound that we should remove
-	*	@param upper_bound the exclusive upper bound that we should remove
-	*/
-	void RemovePointersInRange(IndexType lower_bound, IndexType upper_bound);
-
-	/**
-	*	Offsets defraggable pointers that this heap manages that point into
-	*	the given heap range.
-	*
-	*	@param lower_bound the inclusive lower bound that we should offset
-	*	@param upper_bound the exclusive upper bound that we should offset
-	*	@param offset the offset in chunks to change pointers by
-	*/
-	void OffsetPointersInRange(IndexType lower_bound, IndexType upper_bound, ptrdiff_t offset);
-
 	/**< The data heap we manage. */
 	SplayHeader* _heap;
 
@@ -142,8 +122,8 @@ protected:
 	/**< The total number of free chunks in the heap. */
 	IndexType _free_chunks;
 
-	/**< The root of the defraggable pointer management list. */
-	DefraggablePointerControlBlock _pointer_root;
+	/**< The list of defraggable pointers for this heap. */
+	DefraggablePointerList _pointer_list;
 
 	/**< The offset of the null sentinel node into the heap. */
 	static const IndexType NULL_INDEX = 0;

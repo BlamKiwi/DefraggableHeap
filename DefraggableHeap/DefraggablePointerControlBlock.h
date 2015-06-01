@@ -11,8 +11,8 @@
 */
 class DefraggablePointerControlBlock final
 {
-	/**< Allow the heap classes to manipulate the list pointers directly. */
-	friend class SplayHeap;
+	/**< Allow control list to manipulate the list pointers directly. */
+	friend class DefraggablePointerList;
 
 public:
 
