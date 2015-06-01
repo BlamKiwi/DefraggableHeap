@@ -36,6 +36,9 @@
     <ClInclude Include="DefraggablePointer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="HeapTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

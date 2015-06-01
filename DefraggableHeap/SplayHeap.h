@@ -1,8 +1,10 @@
 #pragma once
 
-#include "BlockHeader.h"
-
 #include "DefraggablePointer.h"
+
+#include "HeapTypes.h"
+
+class BlockHeader;
 
 /**
 *	A defraggable heap implemented as a splay tree.

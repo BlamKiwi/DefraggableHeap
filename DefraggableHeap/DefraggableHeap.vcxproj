@@ -80,6 +80,7 @@
     <ClInclude Include="AlignedAllocator.h" />
     <ClInclude Include="BlockHeader.h" />
     <ClInclude Include="DefraggablePointer.h" />
+    <ClInclude Include="HeapTypes.h" />
     <ClInclude Include="SIMDMem.h" />
     <ClInclude Include="SplayHeap.h" />
     <ClInclude Include="stdafx.h" />

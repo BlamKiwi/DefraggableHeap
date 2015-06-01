@@ -9,6 +9,9 @@
 #include <new>
 #include <algorithm>
 
+
+#include "BlockHeader.h"
+
 SplayHeap::SplayHeap(size_t size)
 	: _pointer_root(nullptr, &_pointer_root, &_pointer_root)
 {
