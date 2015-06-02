@@ -75,9 +75,9 @@ protected:
 	*
 	*	@param t the node to start the search at
 	*	@param num_chunks the minimum number of chunks required in the free block
-	*	@returns the free block and previous indicies
+	*	@returns the free block index
 	*/
-	std::pair<IndexType, IndexType> FindFreeBlock(IndexType t, IndexType num_chunks);
+	IndexType FindFreeBlock(IndexType t, IndexType num_chunks);
 
 	/**< The data heap we manage. */
 	ListHeader* _heap;
@@ -90,9 +90,6 @@ protected:
 
 	/**< The maximum number of contiguous chunks in the heap. */
 	IndexType _max_contiguous_free_chunks;
-
-	/**< The index of the the first free block into the heap.. */
-	IndexType _first_free_block;
 
 	/**< The list of defraggable pointers for this heap. */
 	DefraggablePointerList _pointer_list;

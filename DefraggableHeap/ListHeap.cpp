@@ -25,16 +25,14 @@ ListHeap::ListHeap(size_t size)
 	assert(_num_chunks <= (IndexType(-1) >> 1));
 
 	// Setup the null sentinel node
-	new (&_heap[NULL_INDEX]) ListHeader(1, 1, NULL_INDEX, 0, ALLOCATED);
+	new (&_heap[NULL_INDEX]) ListHeader(0, 1, 1, 1, ALLOCATED);
 
 	// Setup the first free block
 	const auto free = _num_chunks - 1;
 	new (&_heap[NULL_INDEX]) ListHeader(NULL_INDEX, NULL_INDEX, NULL_INDEX, free, FREE);
 
 	// Setup heap tracking state
-	_free_chunks = free;
-	_first_free_block = 1;
-	_max_contiguous_free_chunks = free;
+	_free_chunks = _max_contiguous_free_chunks = free;
 }
 
 ListHeap::~ListHeap()

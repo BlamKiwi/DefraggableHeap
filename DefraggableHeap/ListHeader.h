@@ -21,18 +21,18 @@ _declspec(align(16)) struct ListHeader
 	*	Constructs a block header from the given block data.
 	*
 	*	@param prev the index of the previous block in the heap
-	*	@param next the index of the next block in the heap
+	*	@param prev_free the index of the previous free block in the heap
 	*	@param next_free the index of the next free block in the heap
 	*	@param num_chunks the number of chunks on the block we represent
 	*	@param alloc the allocation state of the block
 	*/
-	ListHeader(IndexType prev, IndexType next, IndexType next_free, IndexType num_chunks, AllocationState alloc);
+	ListHeader(IndexType prev, IndexType prev_free, IndexType next_free, IndexType num_chunks, AllocationState alloc);
 
 	/**< Index of the previous block for this header. */
 	IndexType _prev;
 
-	/**< Index of the next block for this header. */
-	IndexType _next;
+	/**< Index of the previous free block. */
+	IndexType _prev_free;
 
 	/**< Index of the next free block. */
 	IndexType _next_free;
