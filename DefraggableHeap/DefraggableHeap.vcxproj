@@ -79,6 +79,8 @@
   <ItemGroup>
     <ClInclude Include="AlignedAllocator.h" />
     <ClInclude Include="DefraggablePointerList.h" />
+    <ClInclude Include="ListHeader.h" />
+    <ClInclude Include="ListHeap.h" />
     <ClInclude Include="SplayHeader.h" />
     <ClInclude Include="DefraggablePointerControlBlock.h" />
     <ClInclude Include="HeapCommon.h" />
@@ -90,6 +92,8 @@
   <ItemGroup>
     <ClCompile Include="AlignedAllocator.cpp" />
     <ClCompile Include="DefraggablePointerList.cpp" />
+    <ClCompile Include="ListHeader.cpp" />
+    <ClCompile Include="ListHeap.cpp" />
     <ClCompile Include="SplayHeader.cpp" />
     <ClCompile Include="DefraggableHeap.cpp" />
     <ClCompile Include="DefraggablePointerControlBlock.cpp" />

@@ -32,3 +32,22 @@ struct BlockMetadata
 };
 
 static_assert(sizeof(BlockMetadata) == sizeof(IndexType), "The metadata field must be the size of the index type.");
+
+
+/**< The pattern initial blocks should be set to */
+const int INIT_PATTERN = 0x12345678;
+
+/**< The pattern allocated blocks should be set to */
+const int ALLOC_PATTERN = 0xACACACAC;
+
+/**< The pattern merged blocks should be set to */
+const int MERGE_PATTERN = 0xDDDDDDDD;
+
+/**< The pattern freed blocks should be set to */
+const int FREED_PATTERN = 0xFEEFEEFE;
+
+/**< The pattern moved freed blocks should be set to */
+const int MOVE_PATTERN = 0xDEADB0B1;
+
+/**< The pattern free blocks from an allocation split should be set to. */
+const int SPLIT_PATTERN = 0x51775177;
