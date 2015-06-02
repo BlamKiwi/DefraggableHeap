@@ -36,3 +36,32 @@ ListHeap::ListHeap(size_t size)
 	_first_free_block = 1;
 	_max_contiguous_free_chunks = free;
 }
+
+ListHeap::~ListHeap()
+{
+	_pointer_list.RemoveAll();
+
+	// Delete the system heap
+	AlignedDelete(_heap);
+}
+
+float ListHeap::FragmentationRatio() const
+{
+	// Heap is not fragmented if we are at full load
+	// This doesn't take into account free blocks of 0 size that might exist
+	if (!_free_chunks)
+		return 0.0f;
+
+	// Get free chunks statistics
+	const auto free = static_cast<float>(_free_chunks);
+	const auto free_max = static_cast<float>(_max_contiguous_free_chunks);
+
+	// Calculate free chunks ratio to determine fragmentation
+	return (free - free_max) / free;
+}
+
+
+bool ListHeap::IsFullyDefragmented() const
+{
+	return _max_contiguous_free_chunks == _free_chunks;
+}
