@@ -28,10 +28,11 @@ ListHeap::ListHeap(size_t size)
 	new (&_heap[NULL_INDEX]) ListHeader(1, 1, NULL_INDEX, 0, ALLOCATED);
 
 	// Setup the first free block
-	new (&_heap[NULL_INDEX]) ListHeader(NULL_INDEX, NULL_INDEX, NULL_INDEX, _num_chunks - 1, FREE);
+	const auto free = _num_chunks - 1;
+	new (&_heap[NULL_INDEX]) ListHeader(NULL_INDEX, NULL_INDEX, NULL_INDEX, free, FREE);
 
 	// Setup heap tracking state
-	_free_chunks = _num_chunks - 1;
+	_free_chunks = free;
 	_first_free_block = 1;
-	_max_contiguous_free_chunks = _free_chunks;
+	_max_contiguous_free_chunks = free;
 }
