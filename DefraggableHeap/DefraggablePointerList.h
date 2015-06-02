@@ -46,6 +46,11 @@ public:
 	void OffsetPointersInRange(void* lower_bound, void* upper_bound, ptrdiff_t offset);
 
 	/**
+	*	Removes and invalidates all pointers in the managed pointer list.
+	*/
+	void RemoveAll();
+
+	/**
 	*	Creates a new defraggable pointer with the given starting address.
 	*
 	*	@returns the defraggable pointer

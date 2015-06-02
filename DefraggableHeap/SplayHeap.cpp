@@ -66,6 +66,8 @@ void SplayHeap::UpdateNodeStatistics(SplayHeader &node)
 
 SplayHeap::~SplayHeap()
 {
+	_pointer_list.RemoveAll();
+
 	// Delete the system heap
 	AlignedDelete(_heap);
 }

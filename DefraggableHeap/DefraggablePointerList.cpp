@@ -10,6 +10,11 @@ DefraggablePointerList::DefraggablePointerList()
 
 DefraggablePointerList::~DefraggablePointerList()
 {
+	RemoveAll();
+}
+
+void DefraggablePointerList::RemoveAll()
+{
 	DefraggablePointerControlBlock *node = _pointer_root._next;
 
 	// Null out all pointers we manage
