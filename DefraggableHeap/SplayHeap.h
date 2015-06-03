@@ -77,7 +77,7 @@ protected:
 	*	@param num_chunks the minimum number of chunks required in the free block
 	*	@returns the free block
 	*/
-	IndexType FindFreeBlock( IndexType t, IndexType num_chunks );
+	IndexType FindFreeBlock( IndexType t, IndexType num_chunks ) const;
 
 	/**
 	*	Splays the given value to the root of the tree.

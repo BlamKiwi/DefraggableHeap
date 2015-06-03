@@ -136,7 +136,7 @@ IndexType SplayHeap::RotateWithRightChild( IndexType k1 )
 	return k2;
 }
 
-IndexType SplayHeap::FindFreeBlock( IndexType t, IndexType num_chunks )
+IndexType SplayHeap::FindFreeBlock( IndexType t, IndexType num_chunks ) const
 {
 	// Is there even enough space in the tree to make an allocation
 	if (_heap[t]._max_contiguous_free_chunks < num_chunks)
