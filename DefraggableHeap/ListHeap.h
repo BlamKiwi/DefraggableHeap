@@ -77,7 +77,7 @@ protected:
 	*	@param num_chunks the minimum number of chunks required in the free block
 	*	@returns the free block index
 	*/
-	IndexType FindFreeBlock(IndexType t, IndexType num_chunks);
+	IndexType FindFreeBlock(IndexType t, IndexType num_chunks) const;
 
 	/**< The data heap we manage. */
 	ListHeader* _heap;

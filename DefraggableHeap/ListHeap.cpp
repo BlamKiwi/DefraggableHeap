@@ -63,3 +63,24 @@ bool ListHeap::IsFullyDefragmented() const
 {
 	return _max_contiguous_free_chunks == _free_chunks;
 }
+
+IndexType ListHeap::FindFreeBlock(IndexType t, IndexType num_chunks) const
+{
+	// Is there even enough space in the heap to make an allocation
+	if (_max_contiguous_free_chunks < num_chunks)
+		return NULL_INDEX;
+
+	// Start searching at the first non null node
+	IndexType block = _heap[NULL_INDEX]._next_free;
+
+	// Iterate through the freelist until we find a block big enough
+	while (block != NULL_INDEX && 
+		_heap[block]._block_metadata._num_chunks < num_chunks)
+	{
+		// Advance the list index
+		block = _heap[block]._next_free;
+	}
+
+	// Return the found block
+	return block;
+}
