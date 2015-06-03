@@ -73,11 +73,10 @@ protected:
 	/**
 	*	Finds a free heap block of desired size.
 	*
-	*	@param t the node to start the search at
 	*	@param num_chunks the minimum number of chunks required in the free block
 	*	@returns the free block index
 	*/
-	IndexType FindFreeBlock(IndexType t, IndexType num_chunks) const;
+	IndexType FindFreeBlock(IndexType num_chunks) const;
 
 	/**< The data heap we manage. */
 	ListHeader* _heap;

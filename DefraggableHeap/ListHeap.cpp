@@ -3,6 +3,7 @@
 #include "ListHeap.h"
 #include "ListHeader.h"
 #include "AlignedAllocator.h"
+#include "SIMDMem.h"
 
 #include <cassert>
 #include <new>
@@ -25,7 +26,7 @@ ListHeap::ListHeap(size_t size)
 	assert(_num_chunks <= (IndexType(-1) >> 1));
 
 	// Setup the null sentinel node
-	new (&_heap[NULL_INDEX]) ListHeader(0, 1, 1, 1, ALLOCATED);
+	new (&_heap[NULL_INDEX]) ListHeader(NULL_INDEX, 1, 1, 1, ALLOCATED);
 
 	// Setup the first free block
 	const auto free = _num_chunks - 1;
@@ -64,7 +65,7 @@ bool ListHeap::IsFullyDefragmented() const
 	return _max_contiguous_free_chunks == _free_chunks;
 }
 
-IndexType ListHeap::FindFreeBlock(IndexType t, IndexType num_chunks) const
+IndexType ListHeap::FindFreeBlock( IndexType num_chunks) const
 {
 	// Is there even enough space in the heap to make an allocation
 	if (_max_contiguous_free_chunks < num_chunks)
@@ -83,4 +84,44 @@ IndexType ListHeap::FindFreeBlock(IndexType t, IndexType num_chunks) const
 
 	// Return the found block
 	return block;
+}
+
+DefraggablePointerControlBlock ListHeap::Allocate(size_t num_bytes)
+{
+	// An allocation of 0 bytes is redundant
+	if (!num_bytes)
+		return nullptr;
+
+	// Calculate the number of chunks required to fulfil the request
+	const size_t mask = 16 - 1;
+	const auto offset = (16 - (num_bytes & mask)) & mask;
+	const auto required_chunks = ((num_bytes + offset) / 16) + 1;
+	assert(required_chunks);
+
+	// Do we have enough contiguous space for the allocation
+	if (_max_contiguous_free_chunks < required_chunks)
+		return nullptr;
+
+	// Find a suitable free block
+	const auto free_block = FindFreeBlock(required_chunks);
+	auto block = _heap[free_block];
+
+	/* Split the root free block into two, one allocated block and one free block */
+
+	// Calculate the new raw free block size
+	const auto raw_free_chunks = block._block_metadata._num_chunks
+		- required_chunks;
+
+	// Remove the found block from the freelist
+	const auto prev_free = block._prev_free;
+	_heap[block._next_free]._prev = prev_free;
+	_heap[block._prev_free]._next_free = block._next_free;
+
+	// Set the found block so that it represents a now allocated block
+	block._block_metadata = { ALLOCATED, required_chunks };
+	_free_chunks -= required_chunks;
+
+	if (_DEBUG)
+		SIMDMemSet(&block, ALLOC_PATTERN, block._block_metadata._num_chunks - 1);
+
 }
