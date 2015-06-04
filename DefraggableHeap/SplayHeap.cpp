@@ -483,7 +483,7 @@ bool SplayHeap::IterateHeap()
 		SIMDMemSet(&_heap[_root_index + 1], MOVE_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
 #endif
 
-	// We possibly invalidated out heap invariant
+	// We possibly invalidated our heap invariant
 	// Does the right subtree contain any potential free blocks
 	if (_heap[_heap[_root_index]._right]._max_contiguous_free_chunks)
 	{

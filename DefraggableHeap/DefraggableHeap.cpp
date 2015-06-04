@@ -20,7 +20,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	auto val = heap.Allocate(16);
 	//auto val2 = heap.Allocate(32);
-	//heap.Free(val);
+	heap.Free(val);
 	//heap.Free(val2);
 
 	int* x = reinterpret_cast<int*>(val.Get());

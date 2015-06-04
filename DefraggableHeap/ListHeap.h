@@ -100,6 +100,14 @@ protected:
 	*/
 	void UpdateMaxFreeContiguousChunks();
 
+	/**
+	*	Finds the the nearest free block with a smaller offset in the freelist.
+	*
+	*	@param index the reference block index to find
+	*	@returns the nearest free block 
+	*/
+	IndexType FindNearestFreeBlock(IndexType index) const;
+
 	/**< The data heap we manage. */
 	ListHeader* _heap;
 

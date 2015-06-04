@@ -112,7 +112,6 @@ DefraggablePointerControlBlock ListHeap::Allocate(size_t num_bytes)
 	const auto found_block = FindFreeBlock(required_chunks);
 	auto &block = _heap[found_block];
 	assert(found_block != NULL_INDEX);
-	assert(!block._block_metadata._is_allocated);
 	
 	/* Split the free block into two, one allocated block and one free block */
 
@@ -125,6 +124,7 @@ DefraggablePointerControlBlock ListHeap::Allocate(size_t num_bytes)
 
 	// Set the found block so that it represents a now allocated block
 	block._block_metadata = { ALLOCATED, required_chunks };
+	_free_chunks -= required_chunks;
 
 #ifdef _DEBUG
 		SIMDMemSet(&block + 1, ALLOC_PATTERN, block._block_metadata._num_chunks - 1);
@@ -157,7 +157,6 @@ DefraggablePointerControlBlock ListHeap::Allocate(size_t num_bytes)
 
 	// Update heap statistics
 	UpdateMaxFreeContiguousChunks();
-	_free_chunks -= required_chunks;
 
 	// Possible strict aliasing problem?
 	return _pointer_list.Create(&block + 1);
@@ -221,4 +220,103 @@ void ListHeap::UpdateMaxFreeContiguousChunks()
 		// Advance the list index
 		block = _heap[block]._next_free;
 	}
+}
+
+void ListHeap::Free(DefraggablePointerControlBlock &ptr)
+{
+	void* data = ptr.Get();
+
+	// We cannot free the null pointer
+	if (!data)
+		return;
+
+	// Get the offset of the pointer into the heap
+	const auto block_addr = static_cast<ListHeader*>(data);
+	const std::ptrdiff_t offset = block_addr - _heap;
+
+	// Is the offset in a valid range
+	if (offset < 0 || offset >= _num_chunks)
+		return;
+
+	// Is the data pointer of expected alignment
+	if (block_addr != &_heap[offset])
+		return;
+
+	// Mark the block as being free
+	const auto new_offset = offset - 1;
+	auto &block = _heap[new_offset];
+	block._block_metadata._is_allocated = FREE;
+	_free_chunks += block._block_metadata._num_chunks;
+
+	// Insert now free block into the freelist
+	const auto prev_free = FindNearestFreeBlock(new_offset);
+	InsertFreeBlock(prev_free, new_offset);
+
+	// Invalidate defraggable pointers that point into the root block before we invalidate data in the heap
+	_pointer_list.RemovePointersInRange(&block, &block + block._block_metadata._num_chunks);
+
+#ifdef _DEBUG
+	SIMDMemSet(&block + 1, FREED_PATTERN, block._block_metadata._num_chunks - 1);
+#endif
+
+	// We possibly invalidated our heap invariant
+	// Does the right heap contain any potential free blocks
+	if (block._next_free == new_offset + block._block_metadata._num_chunks &&
+		block._next_free != NULL_INDEX)
+	{
+		// Bind the next block
+		auto &next = _heap[block._next_free];
+		assert(!next._block_metadata._is_allocated);
+
+		// Remove the next block from the free list
+		RemoveFreeBlock(block._next_free);
+
+		// Grow the current free block 
+		block._block_metadata._num_chunks += next._block_metadata._num_chunks;
+
+#ifdef _DEBUG
+		SIMDMemSet(&block + 1, MERGE_PATTERN, block._block_metadata._num_chunks - 1);
+#endif
+	}
+
+	// Does the left heap contain any potential free blocks
+	if (block._prev_free == block._prev &&
+		block._prev_free != NULL_INDEX)
+	{
+		// Bind the previous block
+		auto &prev = _heap[block._prev_free];
+		assert(!prev._block_metadata._is_allocated);
+
+		// Remove the block from the free list
+		RemoveFreeBlock(new_offset);
+
+		// Grow the previous free block 
+		prev._block_metadata._num_chunks += block._block_metadata._num_chunks;
+
+#ifdef _DEBUG
+		SIMDMemSet(&prev + 1, MERGE_PATTERN, prev._block_metadata._num_chunks - 1);
+#endif
+	}
+
+	// Update heap statistics
+	UpdateMaxFreeContiguousChunks();
+}
+
+IndexType ListHeap::FindNearestFreeBlock(IndexType index) const
+{
+	// Start searching at the first non null node
+	IndexType block = _heap[NULL_INDEX]._next_free;
+
+	// Iterate through the freelist until with find a block with a larger offset
+	while (block != NULL_INDEX &&
+		index > block )
+	{
+		assert(!_heap[block]._block_metadata._is_allocated);
+
+		// Advance the list index
+		block = _heap[block]._next_free;
+	}
+
+	// Return the previous of the found block
+	return _heap[block]._prev_free;
 }
