@@ -78,6 +78,28 @@ protected:
 	*/
 	IndexType FindFreeBlock(IndexType num_chunks) const;
 
+	/**
+	*	Removes the free block from the free list. 
+	*
+	*	@param index the index of the free block
+	*	@returns the index of the previous free block in the heap
+	*/
+	IndexType RemoveFreeBlock(IndexType index);
+
+	/**
+	*	Inserts the free block from the free list after the given
+	*	root node.
+	*
+	*	@param root the index of the root node
+	*	@param index the index of the free block
+	*/
+	void InsertFreeBlock(IndexType root, IndexType index);
+
+	/**
+	*	Updates the max free contiguous chunks value. 
+	*/
+	void UpdateMaxFreeContiguousChunks();
+
 	/**< The data heap we manage. */
 	ListHeader* _heap;
 
