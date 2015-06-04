@@ -45,8 +45,9 @@ SplayHeap::SplayHeap(size_t size)
 	UpdateNodeStatistics(_heap[_root_index]);
 
 	// Debug set free chunks in the heap
-	if (_DEBUG)
+#ifdef _DEBUG
 		SIMDMemSet(&_heap[_root_index + 1], INIT_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+#endif
 
 }
 
@@ -281,8 +282,9 @@ DefraggablePointerControlBlock SplayHeap::Allocate(size_t num_bytes)
 	_heap[old_index]._block_metadata = { ALLOCATED, required_chunks };
 	_free_chunks -= required_chunks;
 
-	if (_DEBUG)
+#ifdef _DEBUG
 		SIMDMemSet(&_heap[_root_index + 1], ALLOC_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+#endif
 
 	// Is there a new free block to add to the tree
 	if (raw_free_chunks)
@@ -312,8 +314,9 @@ DefraggablePointerControlBlock SplayHeap::Allocate(size_t num_bytes)
 		// Set new root
 		_root_index = new_free_index;
 
-		if (_DEBUG)
+#ifdef _DEBUG
 			SIMDMemSet(&_heap[_root_index + 1], SPLIT_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+#endif
 
 	}
 
@@ -355,8 +358,9 @@ void SplayHeap::Free(DefraggablePointerControlBlock& ptr)
 //	RemovePointersInRange(_root_index, _root_index + _heap[_root_index]._block_metadata._num_chunks);
 	_pointer_list.RemovePointersInRange(&_heap[_root_index], &_heap[_root_index + _heap[_root_index]._block_metadata._num_chunks]);
 
-	if (_DEBUG)
+#ifdef _DEBUG
 		SIMDMemSet(&_heap[_root_index + 1], FREED_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+#endif
 
 	// We may have invalidated our invariant of having no two free adjacent blocks
 	// Collapse adjacent free blocks in the heap to restore the invariant
@@ -377,8 +381,9 @@ void SplayHeap::Free(DefraggablePointerControlBlock& ptr)
 			// Make the left root the new tree root
 			_root_index = left;
 
-			if (_DEBUG)
+#ifdef _DEBUG
 				SIMDMemSet(&_heap[_root_index + 1], MERGE_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+#endif
 		}
 		// Previous block is allocated, fix up pointers
 		else
@@ -399,8 +404,9 @@ void SplayHeap::Free(DefraggablePointerControlBlock& ptr)
 			_heap[_root_index]._block_metadata._num_chunks += 
 				_heap[right]._block_metadata._num_chunks;
 
-			if (_DEBUG)
+#ifdef _DEBUG
 				SIMDMemSet(&_heap[_root_index + 1], MERGE_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+#endif
 		}
 		// Next block is allocated, fix up pointers
 		else
@@ -473,8 +479,9 @@ bool SplayHeap::IterateHeap()
 	// Rotate right child up to root
 	_root_index = RotateWithRightChild(_root_index);
 
-	if (_DEBUG)
+#ifdef _DEBUG
 		SIMDMemSet(&_heap[_root_index + 1], MOVE_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+#endif
 
 	// We possibly invalidated out heap invariant
 	// Does the right subtree contain any potential free blocks
@@ -494,8 +501,9 @@ bool SplayHeap::IterateHeap()
 			// Update root node statistics
 			UpdateNodeStatistics(_heap[_root_index]);
 
-			if (_DEBUG)
+#ifdef _DEBUG
 				SIMDMemSet(&_heap[_root_index + 1], MERGE_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
+#endif
 		}
 		// Next block is allocated, fix up pointers
 		else

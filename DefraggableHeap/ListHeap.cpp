@@ -126,8 +126,9 @@ DefraggablePointerControlBlock ListHeap::Allocate(size_t num_bytes)
 	// Set the found block so that it represents a now allocated block
 	block._block_metadata = { ALLOCATED, required_chunks };
 
-	if (_DEBUG)
+#ifdef _DEBUG
 		SIMDMemSet(&block + 1, ALLOC_PATTERN, block._block_metadata._num_chunks - 1);
+#endif
 
 	// Is there a new free block to add back to the list
 	if (raw_free_chunks)
@@ -149,8 +150,9 @@ DefraggablePointerControlBlock ListHeap::Allocate(size_t num_bytes)
 		// Insert new free block into the free list
 		InsertFreeBlock(prev_free, new_free_index);
 
-		if (_DEBUG)
+#ifdef _DEBUG
 			SIMDMemSet(&_heap[new_free_index + 1], SPLIT_PATTERN, _heap[new_free_index]._block_metadata._num_chunks - 1);
+#endif
 	}
 
 	// Update heap statistics
