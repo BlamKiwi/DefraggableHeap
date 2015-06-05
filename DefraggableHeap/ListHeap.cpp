@@ -320,3 +320,95 @@ IndexType ListHeap::FindNearestFreeBlock(IndexType index) const
 	// Return the previous of the found block
 	return _heap[block]._prev_free;
 }
+
+void ListHeap::FullDefrag()
+{
+	while (!IterateHeap(false))
+		;
+
+	// Update heap statistics
+	UpdateMaxFreeContiguousChunks();
+}
+
+bool ListHeap::IterateHeap()
+{
+	return IterateHeap(true);
+}
+
+bool ListHeap::IterateHeap(const bool update_stats)
+{
+	// Do we actually need to defrag the heap
+	if (IsFullyDefragmented())
+		return true;
+
+	// Get the first free block in the heap
+	auto free_block = _heap[NULL_INDEX]._next_free;
+	auto &f = _heap[free_block];
+	assert(free_block != NULL_INDEX);
+	assert(!f._block_metadata._is_allocated);
+
+	// Gett the next allocated block in the heap
+	auto alloc_block = free_block + f._block_metadata._num_chunks;
+	auto &a = _heap[alloc_block];
+	assert(alloc_block != _num_chunks);
+	assert(a._block_metadata._is_allocated);
+
+	// Remove freeblock from the free list
+	const auto prev_free = RemoveFreeBlock(free_block);
+
+	// Update defraggable pointers before invalidating the heap
+	_pointer_list.OffsetPointersInRange(&a, &a + a._block_metadata._num_chunks, (free_block - alloc_block) * 16);
+
+	// Create new free block header
+	ListHeader new_free(free_block, NULL_INDEX, NULL_INDEX, f._block_metadata._num_chunks, FREE);
+	const auto new_free_offset = free_block + a._block_metadata._num_chunks;
+
+	// Create new allocated block header
+	ListHeader new_allocated(f._prev, NULL_INDEX, NULL_INDEX, a._block_metadata._num_chunks, ALLOCATED);
+
+	/* CONSIDER THE HEAP INVALID FROM HERE */
+
+	// Copy new allocated block header and move the data
+	SIMDMemCopy(&f, &new_allocated, 1);
+	SIMDMemCopy(&f + 1, &a + 1,
+		new_allocated._block_metadata._num_chunks - 1);
+
+	// Copy new free block header
+	SIMDMemCopy(&_heap[new_free_offset], &new_free, 1);
+
+	/* HEAP IS NOW VALID */
+
+	// Add new free block to the free list
+	InsertFreeBlock(prev_free, new_free_offset);
+
+#ifdef _DEBUG
+	SIMDMemSet(&_heap[new_free_offset + 1], MOVE_PATTERN, _heap[new_free_offset]._block_metadata._num_chunks - 1);
+#endif
+
+	// We possibly invalidated our heap invariant
+	// Does the right heap contain any potential free blocks
+	auto &block = _heap[new_free_offset];
+	if (block._next_free == new_free_offset + block._block_metadata._num_chunks &&
+		block._next_free != NULL_INDEX)
+	{
+		// Bind the next block
+		auto &next = _heap[block._next_free];
+		assert(!next._block_metadata._is_allocated);
+
+		// Remove the next block from the free list
+		RemoveFreeBlock(block._next_free);
+
+		// Grow the current free block 
+		block._block_metadata._num_chunks += next._block_metadata._num_chunks;
+
+#ifdef _DEBUG
+		SIMDMemSet(&block + 1, MERGE_PATTERN, block._block_metadata._num_chunks - 1);
+#endif
+	}
+
+	// Update heap statistics
+	if (update_stats)
+		UpdateMaxFreeContiguousChunks();
+
+	return IsFullyDefragmented();
+}
