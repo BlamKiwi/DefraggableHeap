@@ -7,64 +7,213 @@
 #include <cstdint>
 #include <cassert>
 #include <algorithm>
-
+#include <chrono>
 #include <iostream>
+#include <vector>
+#include <functional>
 
 #include "SplayHeap.h"
 #include "ListHeap.h"
 
+static const size_t HEAP_SIZE = 1024 * 1024 * 32; // 32MB heap
+static const size_t ALLOC_SIZE = 1024;
+static const size_t CHUNKS = HEAP_SIZE / 16;
+
+static const size_t RUNS = 5;
+static const size_t WARMUP_RUNS = 2;
+
+const char * const GetTypeString(const ListHeap&)
+{
+	return "ListHeap";
+}
+
+const char * const GetTypeString(const SplayHeap&)
+{
+	return "SplayHeap";
+}
+
+
+template <typename T>
+void PureAllocationBenchmark(T& heap)
+{
+	std::vector<DefraggablePointerControlBlock> blas;
+	blas.reserve(CHUNKS / 2);
+
+	auto pre_benchmark = [&](){};
+
+	auto benchmark = [&]()
+	{
+		// Allocate ALLOC_SIZES until we fail
+		while (auto alloc = heap.Allocate(ALLOC_SIZE))
+			blas.push_back(std::move(alloc));
+
+	};
+
+	auto post_benchmark = [&]()
+	{
+		// Return all allocated data to the heap
+		for (auto &i : blas)
+			heap.Free(i);
+
+		// Clear blas
+		blas.clear();
+	};
+
+	// Do two warmup runs of the benchmark
+	for (auto i = 0U; i < WARMUP_RUNS; i++)
+	{
+		pre_benchmark();
+		benchmark();
+		post_benchmark();
+	}
+
+	// Run the actual benchmark
+	std::vector<size_t> time_log; 
+	for (auto i = 0U; i < RUNS; i++)
+	{
+		pre_benchmark();
+
+		auto start_time = std::chrono::high_resolution_clock::now();
+
+		benchmark();
+
+		auto end_time = std::chrono::high_resolution_clock::now();
+
+		time_log.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count());
+
+		post_benchmark();
+	}
+
+	// Display results
+	std::cout << "----- Pure Allocation Benchmark -----" << std::endl << std::endl;;
+	std::cout << std::endl << "Heap Type: " << GetTypeString(heap) << std::endl << std::endl;
+
+	for (auto i = 0U; i < RUNS; i++)
+		std::cout << "Run " << i << ": " << time_log[i] << "ns" << std::endl << std::endl;
+
+	size_t sum = 0;
+	for (auto i : time_log)
+		sum += i;
+	sum /= RUNS;
+
+	std::cout << "Average : " << sum << "ns" << std::endl << std::endl;
+
+	std::cout << "-------------------------------------" << std::endl << std::endl;
+}
+
+template <typename T>
+void FullDefragBenchmark(T& heap)
+{
+	std::vector<DefraggablePointerControlBlock> blas;
+	blas.reserve(CHUNKS / 2);
+
+	auto pre_benchmark = [&]()
+	{
+		// Allocate ALLOC_SIZES until we fail
+		while (auto alloc = heap.Allocate(ALLOC_SIZE))
+			blas.push_back(std::move(alloc));
+
+		// Free every second block to maximize fragmentation
+		size_t c = 0;
+		for (auto& i : blas)
+		{
+			if ((c & 1) == 0)
+			{
+				heap.Free(i);
+			}
+
+			c++;
+		}
+	};
+
+	auto benchmark = [&]()
+	{
+		heap.FullDefrag();
+	};
+
+	auto post_benchmark = [&]()
+	{
+		// Return all allocated data to the heap
+		size_t c = 0;
+		for (auto &i : blas)
+		{
+			if ((i & 1) == 1)
+			{
+				heap.Free(i);
+			}
+
+			c++;
+		}
+
+		// Clear blas
+		blas.clear();
+	};
+
+	// Do two warmup runs of the benchmark
+	for (auto i = 0U; i < WARMUP_RUNS; i++)
+	{
+		pre_benchmark();
+		benchmark();
+		post_benchmark();
+	}
+
+	// Run the actual benchmark
+	std::vector<size_t> time_log;
+	for (auto i = 0U; i < RUNS; i++)
+	{
+		pre_benchmark();
+
+		auto start_time = std::chrono::high_resolution_clock::now();
+
+		benchmark();
+
+		auto end_time = std::chrono::high_resolution_clock::now();
+
+		time_log.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count());
+
+		post_benchmark();
+	}
+
+	// Display results
+	std::cout << "----- Full Defragmentation Benchmark -----" << std::endl << std::endl;;
+	std::cout << std::endl << "Heap Type: " << GetTypeString(heap) << std::endl << std::endl;
+
+	for (auto i = 0U; i < RUNS; i++)
+		std::cout << "Run " << i << ": " << time_log[i] << "ns" << std::endl << std::endl;
+
+	size_t sum = 0;
+	for (auto i : time_log)
+		sum += i;
+	sum /= RUNS;
+
+	std::cout << "Average : " << sum << "ns" << std::endl << std::endl;
+
+	std::cout << "-------------------------------------" << std::endl << std::endl;
+}
+
+
 int _tmain(int argc, _TCHAR* argv[])
 {
+	std::cout << "System ticks per second: " << std::chrono::high_resolution_clock::period::den << std::endl << std::endl;
 
-	ListHeap heap(127);
+	ListHeap list(HEAP_SIZE);
+	SplayHeap splay(HEAP_SIZE);
 
-	auto val = heap.Allocate(16);
-	//auto val2 = heap.Allocate(32);
-	heap.Free(val);
-	//heap.Free(val2);
+	/** 
+		--- Pure Allocate Benchmark ---
 
-	int* x = reinterpret_cast<int*>(val.Get());
+		Benchmarks the performance of the Allocate function for the heaps.
+	**/
+	PureAllocationBenchmark(list);
+	PureAllocationBenchmark(splay);
 
-	*x = 6666;
+	/**
+		--- Full Defragmentation Benchmark ---
 
-	//heap.IterateHeap();
-
-	//x = reinterpret_cast<int*>(val2.Get());
-
-	//std::cout << *x << std::endl;
-
-	DefraggablePointerControlBlock ptr;
-	ptr = nullptr;
-
-	/*DefraggableHeap n( 500 ); // 1GB
-
-
-	auto p = n.Allocate( 4 );
-	auto p1 = n.Allocate( 8 );
-	auto p2 = n.Allocate( 16 );
-	auto p3 = n.Allocate( 2 );
-	auto p4 = n.Allocate( 4 );
-	auto p5 = n.Allocate( 8 );
-	auto p6 = n.Allocate( 16 );
-	auto p7 = n.Allocate( 2 );
-	auto p8 = n.Allocate( 4 );
-	auto p9 = n.Allocate( 8 );
-	auto p10 = n.Allocate( 16 );
-	auto p11 = n.Allocate( 2 );
-	auto p12 = n.Allocate( 4 );
-	auto p13 = n.Allocate( 8 );
-	auto p14 = n.Allocate( 16 );
-	auto p15 = n.Allocate( 2 );
-
-	std::memset( p, 0xABABABAB, 4 );
-	std::memset( p1, 0xCDCDCDCD, 8 );
-	std::memset( p2, 0xEFEFEFEF, 16 );
-	std::memset( p3, 0x12121212, 2 );
-
-	n.Free( p );
-	n.Free( p15 );
-
-	n.Defrag( );*/
+		Benchmarks the performance of the Fully Defragment function for the heaps.
+	**/
+	FullDefragBenchmark(list);
+	FullDefragBenchmark(splay);
 
 	return 0;
 }

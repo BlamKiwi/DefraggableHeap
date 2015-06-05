@@ -290,6 +290,11 @@ void ListHeap::Free(DefraggablePointerControlBlock &ptr)
 		// Remove the block from the free list
 		RemoveFreeBlock(new_offset);
 
+		// Remove block from the heap
+		const auto next_offset = new_offset + block._block_metadata._num_chunks;
+		if ( next_offset != _num_chunks)
+			_heap[next_offset]._prev = block._prev;
+
 		// Grow the previous free block 
 		prev._block_metadata._num_chunks += block._block_metadata._num_chunks;
 
@@ -347,17 +352,21 @@ bool ListHeap::IterateHeap(const bool update_stats)
 	assert(free_block != NULL_INDEX);
 	assert(!f._block_metadata._is_allocated);
 
-	// Gett the next allocated block in the heap
+	// If the next block points out of the heap, we are fully defragmented
 	auto alloc_block = free_block + f._block_metadata._num_chunks;
+	
+	if (alloc_block == _num_chunks)
+		return true;
+
+	// Bind the next allocated block in the heap
 	auto &a = _heap[alloc_block];
-	assert(alloc_block != _num_chunks);
 	assert(a._block_metadata._is_allocated);
 
 	// Remove freeblock from the free list
 	const auto prev_free = RemoveFreeBlock(free_block);
 
 	// Update defraggable pointers before invalidating the heap
-	_pointer_list.OffsetPointersInRange(&a, &a + a._block_metadata._num_chunks, (free_block - alloc_block) * 16);
+	_pointer_list.OffsetPointersInRange(&a, &a + a._block_metadata._num_chunks, (ptrdiff_t(free_block) - ptrdiff_t(alloc_block)) * 16);
 
 	// Create new free block header
 	ListHeader new_free(free_block, NULL_INDEX, NULL_INDEX, f._block_metadata._num_chunks, FREE);

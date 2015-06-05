@@ -71,8 +71,10 @@ void DefraggablePointerControlBlock::Insert(DefraggablePointerControlBlock &othe
 	}
 	else
 	{
-		// Make this a null pointer
-		*this = nullptr;
+		// Make us a null pointer
+		_data = nullptr;
+		_prev = nullptr;
+		_next = nullptr;
 	}
 }
 

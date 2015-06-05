@@ -451,7 +451,7 @@ bool SplayHeap::IterateHeap()
 
 	// Update defraggable pointers before invalidating the heap
 	//OffsetPointersInRange(right, right + n._block_metadata._num_chunks, _root_index - right);
-	_pointer_list.OffsetPointersInRange(&_heap[right], &_heap[right + n._block_metadata._num_chunks], (_root_index - right) * 16);
+	_pointer_list.OffsetPointersInRange(&_heap[right], &_heap[right + n._block_metadata._num_chunks], (ptrdiff_t(_root_index) - ptrdiff_t(right)) * 16);
 
 	// Create new free block header
 	SplayHeader new_free(NULL_INDEX, n._right, root._block_metadata._num_chunks, FREE);

@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <emmintrin.h>
+#include <smmintrin.h>
 
 void SIMDMemCopy(void* target, void* source, size_t num_chunks)
 {
@@ -17,16 +18,18 @@ void SIMDMemCopy(void* target, void* source, size_t num_chunks)
 
 	// Interpret the addresses as a bunch of bytes
 	auto t = static_cast<__m128i*>(target);
-	auto s = static_cast<const __m128i*>(source);
+	auto s = static_cast<__m128i*>(source);
 
 	// Start copying the source to the target addresses
 	for (size_t i = 0; i < num_chunks; i++, t++, s++)
 	{
 		// Load chunk from source address
 		const __m128i chunk = _mm_load_si128(s);
+		//__m128i chunk = _mm_stream_load_si128(s);
 
 		// Store chunk into target address
 		_mm_store_si128(t, chunk);
+		//_mm_stream_si128(t, chunk);
 	}
 }
 
