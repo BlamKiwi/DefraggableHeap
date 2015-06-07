@@ -15,12 +15,44 @@
 #include "SplayHeap.h"
 #include "ListHeap.h"
 
-static const size_t HEAP_SIZE = 1024 * 1024 * 32; // 32MB heap
+#include <windows.h>
+
+double GetTiming()
+{
+	LARGE_INTEGER li;
+	if (!QueryPerformanceFrequency(&li))
+		std::terminate();
+
+	return double(li.QuadPart) / 1000.0; // Scale to ms timing
+}
+
+/**< The timing scale of the computer */
+static double TIMING_SCALE;
+
+typedef __int64 Counter;
+
+Counter SamplePerformanceCounter()
+{
+	LARGE_INTEGER li;
+	QueryPerformanceCounter(&li);
+	return li.QuadPart;
+}
+
+double GetDuration(Counter c)
+{
+	LARGE_INTEGER li;
+	QueryPerformanceCounter(&li);
+	return double(li.QuadPart - c) / TIMING_SCALE;
+}
+
+static const size_t HEAP_SIZE = 1024 * 1024 * 64; // 32MB heap
 static const size_t ALLOC_SIZE = 1024;
 static const size_t CHUNKS = HEAP_SIZE / 16;
 
 static const size_t RUNS = 5;
 static const size_t WARMUP_RUNS = 2;
+
+
 
 const char * const GetTypeString(const ListHeap&)
 {
@@ -31,6 +63,8 @@ const char * const GetTypeString(const SplayHeap&)
 {
 	return "SplayHeap";
 }
+
+const char * const UNIT_STRING = "ms";
 
 std::vector<uint32_t> EratosthenesSieve(uint32_t upper_bound) 
 {
@@ -67,6 +101,49 @@ std::vector<uint32_t> EratosthenesSieve(uint32_t upper_bound)
 	return res;
 }
 
+template <typename PreBenchmark, typename Benchmark, typename PostBenchmark, typename Heap>
+void RunBenchmark(PreBenchmark& pre_benchmark, Benchmark& benchmark, PostBenchmark &post_benchmark, Heap &heap, const char * const name )
+{
+	// Do two warmup runs of the benchmark
+	for (auto i = 0U; i < WARMUP_RUNS; i++)
+	{
+		pre_benchmark();
+		benchmark();
+		post_benchmark();
+	}
+
+	// Run the actual benchmark
+	std::vector<double> time_log;
+	for (auto i = 0U; i < RUNS; i++)
+	{
+		pre_benchmark();
+
+		auto start_time = SamplePerformanceCounter();
+
+		benchmark();
+
+		time_log.push_back(GetDuration(start_time));
+
+		post_benchmark();
+	}
+
+	// Display results
+	std::cout << "----- " << name << " -----" << std::endl << std::endl;;
+	std::cout << std::endl << "Heap Type: " << GetTypeString(heap) << std::endl << std::endl;
+
+	for (auto i = 0U; i < RUNS; i++)
+		std::cout << "Run " << i << ": " << time_log[i] << UNIT_STRING << std::endl << std::endl;
+
+	double sum = 0;
+	for (auto i : time_log)
+		sum += i;
+	sum /= RUNS;
+
+	std::cout << "Average : " << sum << UNIT_STRING << std::endl << std::endl;
+
+	std::cout << "-------------------------------------" << std::endl << std::endl;
+}
+
 template <typename T>
 void PureAllocationBenchmark(T& heap)
 {
@@ -93,46 +170,7 @@ void PureAllocationBenchmark(T& heap)
 		blas.clear();
 	};
 
-	// Do two warmup runs of the benchmark
-	for (auto i = 0U; i < WARMUP_RUNS; i++)
-	{
-		pre_benchmark();
-		benchmark();
-		post_benchmark();
-	}
-
-	// Run the actual benchmark
-	std::vector<size_t> time_log; 
-	for (auto i = 0U; i < RUNS; i++)
-	{
-		pre_benchmark();
-
-		auto start_time = std::chrono::high_resolution_clock::now();
-
-		benchmark();
-
-		auto end_time = std::chrono::high_resolution_clock::now();
-
-		time_log.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count());
-
-		post_benchmark();
-	}
-
-	// Display results
-	std::cout << "----- Pure Allocation Benchmark -----" << std::endl << std::endl;;
-	std::cout << std::endl << "Heap Type: " << GetTypeString(heap) << std::endl << std::endl;
-
-	for (auto i = 0U; i < RUNS; i++)
-		std::cout << "Run " << i << ": " << time_log[i] << "ns" << std::endl << std::endl;
-
-	size_t sum = 0;
-	for (auto i : time_log)
-		sum += i;
-	sum /= RUNS;
-
-	std::cout << "Average : " << sum << "ns" << std::endl << std::endl;
-
-	std::cout << "-------------------------------------" << std::endl << std::endl;
+	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Pure Allocation Benchmark");
 }
 
 template <typename T>
@@ -168,38 +206,7 @@ void PureFreeBenchmark(T& heap)
 		post_benchmark();
 	}
 
-	// Run the actual benchmark
-	std::vector<size_t> time_log;
-	for (auto i = 0U; i < RUNS; i++)
-	{
-		pre_benchmark();
-
-		auto start_time = std::chrono::high_resolution_clock::now();
-
-		benchmark();
-
-		auto end_time = std::chrono::high_resolution_clock::now();
-
-		time_log.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count());
-
-		post_benchmark();
-	}
-
-	// Display results
-	std::cout << "----- Pure Free Benchmark -----" << std::endl << std::endl;;
-	std::cout << std::endl << "Heap Type: " << GetTypeString(heap) << std::endl << std::endl;
-
-	for (auto i = 0U; i < RUNS; i++)
-		std::cout << "Run " << i << ": " << time_log[i] << "ns" << std::endl << std::endl;
-
-	size_t sum = 0;
-	for (auto i : time_log)
-		sum += i;
-	sum /= RUNS;
-
-	std::cout << "Average : " << sum << "ns" << std::endl << std::endl;
-
-	std::cout << "-------------------------------------" << std::endl << std::endl;
+	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Pure Free Benchmark");
 }
 
 template <typename T>
@@ -242,44 +249,51 @@ void PrimeStrideFreeBenchmark(T& heap)
 	// Do two warmup runs of the benchmark
 	for (auto i = 0U; i < WARMUP_RUNS; i++)
 	{
-		std::cout << "-------------------------------------" << std::endl << std::endl;
 		pre_benchmark();
 		benchmark();
 		post_benchmark();
 	}
 
-	// Run the actual benchmark
-	std::vector<size_t> time_log;
-	for (auto i = 0U; i < RUNS; i++)
+	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Prime Stride Free Benchmark");
+}
+
+template <typename T>
+void StackBenchmark(T& heap)
+{
+	std::vector<DefraggablePointerControlBlock> blas;
+	blas.reserve(CHUNKS / 2);
+	const auto primes = EratosthenesSieve(CHUNKS / 2);
+
+	auto pre_benchmark = [&](){
+		
+	};
+
+	auto benchmark = [&]()
+	{
+		// Allocate ALLOC_SIZES until we fail
+		while (auto alloc = heap.Allocate(ALLOC_SIZE))
+			blas.push_back(std::move(alloc));
+
+		// Pop items off
+		for (auto it = blas.rbegin(); it != blas.rend(); it++)
+			heap.Free(*it);
+	};
+
+	auto post_benchmark = [&]()
+	{
+		// Clear blas
+		blas.clear();
+	};
+
+	// Do two warmup runs of the benchmark
+	for (auto i = 0U; i < WARMUP_RUNS; i++)
 	{
 		pre_benchmark();
-
-		auto start_time = std::chrono::high_resolution_clock::now();
-
 		benchmark();
-
-		auto end_time = std::chrono::high_resolution_clock::now();
-
-		time_log.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count());
-
 		post_benchmark();
 	}
 
-	// Display results
-	std::cout << "----- Prime Stride Free Benchmark -----" << std::endl << std::endl;;
-	std::cout << std::endl << "Heap Type: " << GetTypeString(heap) << std::endl << std::endl;
-
-	for (auto i = 0U; i < RUNS; i++)
-		std::cout << "Run " << i << ": " << time_log[i] << "ns" << std::endl << std::endl;
-
-	size_t sum = 0;
-	for (auto i : time_log)
-		sum += i;
-	sum /= RUNS;
-
-	std::cout << "Average : " << sum << "ns" << std::endl << std::endl;
-
-	std::cout << "-------------------------------------" << std::endl << std::endl;
+	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Stack Benchmark");
 }
 
 template <typename T>
@@ -338,44 +352,14 @@ void FullDefragBenchmark(T& heap)
 		post_benchmark();
 	}
 
-	// Run the actual benchmark
-	std::vector<size_t> time_log;
-	for (auto i = 0U; i < RUNS; i++)
-	{
-		pre_benchmark();
-
-		auto start_time = std::chrono::high_resolution_clock::now();
-
-		benchmark();
-
-		auto end_time = std::chrono::high_resolution_clock::now();
-
-		time_log.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count());
-
-		post_benchmark();
-	}
-
-	// Display results
-	std::cout << "----- Full Defragmentation Benchmark -----" << std::endl << std::endl;;
-	std::cout << std::endl << "Heap Type: " << GetTypeString(heap) << std::endl << std::endl;
-
-	for (auto i = 0U; i < RUNS; i++)
-		std::cout << "Run " << i << ": " << time_log[i] << "ns" << std::endl << std::endl;
-
-	size_t sum = 0;
-	for (auto i : time_log)
-		sum += i;
-	sum /= RUNS;
-
-	std::cout << "Average : " << sum << "ns" << std::endl << std::endl;
-
-	std::cout << "-------------------------------------" << std::endl << std::endl;
+	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Full Defrag Benchmark");
 }
 
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	std::cout << "System ticks per second: " << std::chrono::high_resolution_clock::period::den << std::endl << std::endl;
+	TIMING_SCALE = GetTiming();
+	std::cout << "Timing: " << TIMING_SCALE << std::endl << std::endl;
 
 	ListHeap list(HEAP_SIZE);
 	SplayHeap splay(HEAP_SIZE);
@@ -393,8 +377,8 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		Benchmarks the performance of the Fully Defragment function for the heaps.
 	**/
-	//FullDefragBenchmark(list);
-	//FullDefragBenchmark(splay);
+    //FullDefragBenchmark(list);
+    //FullDefragBenchmark(splay);
 
 	/**
 		--- Pure Free Benchmark ---
@@ -409,8 +393,16 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		Benchmarks the performance of the Free function for the heaps using prime strides.
 	**/
-	PrimeStrideFreeBenchmark(list);
-	PrimeStrideFreeBenchmark(splay);
+	//PrimeStrideFreeBenchmark(list);
+	//PrimeStrideFreeBenchmark(splay);
+
+	/**
+		--- Prime Stride Free Benchmark ---
+
+		Benchmarks the performance of the allocator functions with a stack like access pattern.
+	**/
+	StackBenchmark(list);
+	StackBenchmark(splay);
 
 	return 0;
 }
