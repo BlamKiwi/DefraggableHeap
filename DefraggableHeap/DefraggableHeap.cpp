@@ -11,6 +11,7 @@
 #include <iostream>
 #include <vector>
 #include <functional>
+#include <random>
 
 #include "SplayHeap.h"
 #include "ListHeap.h"
@@ -30,6 +31,8 @@ double GetTiming()
 static double TIMING_SCALE;
 
 typedef __int64 Counter;
+
+Counter SEED;
 
 Counter SamplePerformanceCounter()
 {
@@ -198,14 +201,6 @@ void PureFreeBenchmark(T& heap)
 		blas.clear();
 	};
 
-	// Do two warmup runs of the benchmark
-	for (auto i = 0U; i < WARMUP_RUNS; i++)
-	{
-		pre_benchmark();
-		benchmark();
-		post_benchmark();
-	}
-
 	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Pure Free Benchmark");
 }
 
@@ -246,14 +241,6 @@ void PrimeStrideFreeBenchmark(T& heap)
 		blas.clear();
 	};
 
-	// Do two warmup runs of the benchmark
-	for (auto i = 0U; i < WARMUP_RUNS; i++)
-	{
-		pre_benchmark();
-		benchmark();
-		post_benchmark();
-	}
-
 	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Prime Stride Free Benchmark");
 }
 
@@ -284,14 +271,6 @@ void StackBenchmark(T& heap)
 		// Clear blas
 		blas.clear();
 	};
-
-	// Do two warmup runs of the benchmark
-	for (auto i = 0U; i < WARMUP_RUNS; i++)
-	{
-		pre_benchmark();
-		benchmark();
-		post_benchmark();
-	}
 
 	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Stack Benchmark");
 }
@@ -344,22 +323,94 @@ void FullDefragBenchmark(T& heap)
 		blas.clear();
 	};
 
-	// Do two warmup runs of the benchmark
-	for (auto i = 0U; i < WARMUP_RUNS; i++)
-	{
-		pre_benchmark();
-		benchmark();
-		post_benchmark();
-	}
-
 	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Full Defrag Benchmark");
 }
 
+template <typename T>
+void RandomBenchmark(T& heap)
+{
+	std::vector<DefraggablePointerControlBlock> blas;
+	blas.reserve(CHUNKS / 2);
+	
+	std::mt19937 engine;
+	std::uniform_int_distribution<int> dist(0, 6);
+	static const size_t ITERATIONS = 2000000;
+
+	auto pre_benchmark = [&]()
+	{
+		// Reset the random generator
+		engine.seed(SEED);
+	};
+
+	auto benchmark = [&]()
+	{
+		// Run iterations of the benchmark
+		for (auto i = 0U; i < ITERATIONS; i++)
+		{
+			// Generate option to perform
+			const auto res = dist(engine);
+
+			switch (res)
+			{
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+			{
+				// Allocate some data
+				if (auto alloc = heap.Allocate(ALLOC_SIZE))
+					blas.push_back(std::move(alloc));
+				else if (!blas.empty())
+				{
+					heap.Free(blas.back());
+					blas.pop_back();
+				}
+				else
+					// Do a little defragging
+					heap.IterateHeap();
+				
+			}
+			break;
+			case 4:
+			case 5:
+			{
+				// Free some data
+				if (!blas.empty())
+				{
+					heap.Free(blas.back());
+					blas.pop_back();
+				}
+				else
+					// Do a little defragging
+					heap.IterateHeap();
+			}
+			break;
+			case 6:
+				// Do a little defragging
+				heap.IterateHeap();
+			break;
+			}
+		}
+	};
+
+	auto post_benchmark = [&]()
+	{
+		// Return all allocated data to the heap
+		for (auto &i : blas)
+			heap.Free(i);
+
+		// Clear blas
+		blas.clear();
+	};
+
+	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Random Benchmark");
+}
 
 int _tmain(int argc, _TCHAR* argv[])
 {
 	TIMING_SCALE = GetTiming();
-	std::cout << "Timing: " << TIMING_SCALE << std::endl << std::endl;
+	SEED = SamplePerformanceCounter();
+	std::cout << "Timing: " << TIMING_SCALE << ", Seed: " << SEED << std::endl << std::endl;
 
 	ListHeap list(HEAP_SIZE);
 	SplayHeap splay(HEAP_SIZE);
@@ -397,12 +448,23 @@ int _tmain(int argc, _TCHAR* argv[])
 	//PrimeStrideFreeBenchmark(splay);
 
 	/**
-		--- Prime Stride Free Benchmark ---
+		--- Stack Free Benchmark ---
 
 		Benchmarks the performance of the allocator functions with a stack like access pattern.
 	**/
-	StackBenchmark(list);
-	StackBenchmark(splay);
+	//StackBenchmark(list);
+	//StackBenchmark(splay);
+
+	/**
+		--- Random Benchmark ---
+	
+		Applies random behaviour to the heaps.
+	**/
+	RandomBenchmark(list);
+	RandomBenchmark(splay);
+
+	int x;
+	std::cin >> x;
 
 	return 0;
 }
