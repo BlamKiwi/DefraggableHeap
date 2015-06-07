@@ -37,7 +37,7 @@ ListHeap::ListHeap(size_t size)
 	new (&_heap[1]) ListHeader(NULL_INDEX, NULL_INDEX, NULL_INDEX, free, FREE);
 
 	// Setup heap tracking state
-	_free_chunks = _max_contiguous_free_chunks = free;
+	_free_chunks = free;
 }
 
 ListHeap::~ListHeap()
@@ -56,8 +56,21 @@ float ListHeap::FragmentationRatio() const
 		return 0.0f;
 
 	// Get free chunks statistics
+	IndexType max_contiguous_free_chunks = 0;
+	IndexType t = _heap[NULL_INDEX]._next_free;
+
+	while (t != NULL_INDEX)
+	{
+		assert(!_heap[t]._block_metadata._is_allocated);
+
+		max_contiguous_free_chunks = std::max(max_contiguous_free_chunks,
+			_heap[t]._block_metadata._num_chunks);
+
+		t = _heap[t]._next_free;
+	}
+
+	const auto free_max = static_cast<float>(max_contiguous_free_chunks);
 	const auto free = static_cast<float>(_free_chunks);
-	const auto free_max = static_cast<float>(_max_contiguous_free_chunks);
 
 	// Calculate free chunks ratio to determine fragmentation
 	return (free - free_max) / free;
@@ -66,15 +79,12 @@ float ListHeap::FragmentationRatio() const
 
 bool ListHeap::IsFullyDefragmented() const
 {
-	return _max_contiguous_free_chunks == _free_chunks;
+	// The heap is fully defragmented if there is <2 free blocks
+	return _heap[NULL_INDEX]._next_free == _heap[NULL_INDEX]._prev_free;
 }
 
 IndexType ListHeap::FindFreeBlock( IndexType num_chunks) const
 {
-	// Is there even enough space in the heap to make an allocation
-	if (_max_contiguous_free_chunks < num_chunks)
-		return NULL_INDEX;
-
 	// Start searching at the first non null node
 	IndexType block = _heap[NULL_INDEX]._next_free;
 
@@ -99,19 +109,18 @@ DefraggablePointerControlBlock ListHeap::Allocate(size_t num_bytes)
 		return nullptr;
 
 	// Calculate the number of chunks required to fulfil the request
-	const size_t mask = 16 - 1;
-	const auto offset = (16 - (num_bytes & mask)) & mask;
-	const auto required_chunks = ((num_bytes + offset) / 16) + 1;
+	const IndexType mask = 16 - 1;
+	const IndexType offset = (16 - (num_bytes & mask)) & mask;
+	const IndexType required_chunks = ((num_bytes + offset) / 16) + 1;
 	assert(required_chunks);
 
-	// Do we have enough contiguous space for the allocation
-	if (_max_contiguous_free_chunks < required_chunks)
-		return nullptr;
-
-	// Find a suitable free block
+	// Try find a suitable free block
 	const auto found_block = FindFreeBlock(required_chunks);
 	auto &block = _heap[found_block];
-	assert(found_block != NULL_INDEX);
+
+	// Did we fail to find a suitable free block
+	if (found_block == NULL_INDEX)
+		return nullptr;
 	
 	/* Split the free block into two, one allocated block and one free block */
 
@@ -155,9 +164,6 @@ DefraggablePointerControlBlock ListHeap::Allocate(size_t num_bytes)
 #endif
 	}
 
-	// Update heap statistics
-	UpdateMaxFreeContiguousChunks();
-
 	// Possible strict aliasing problem?
 	return _pointer_list.Create(&block + 1);
 }
@@ -198,28 +204,6 @@ void ListHeap::InsertFreeBlock(IndexType root, IndexType index)
 	// Modify backwards chain in list
 	i._prev_free = root;
 	n._prev_free = index;
-}
-
-void ListHeap::UpdateMaxFreeContiguousChunks()
-{
-	// Start searching at the first non null node
-	IndexType block = _heap[NULL_INDEX]._next_free;
-
-	// Reset max to minimum valid value
-	_max_contiguous_free_chunks = 0;
-
-	// Iterate through the freelist 
-	while (block != NULL_INDEX)
-	{
-		assert(!_heap[block]._block_metadata._is_allocated);
-
-		// Get the local max contiguous free block size
-		_max_contiguous_free_chunks = std::max(_max_contiguous_free_chunks, 
-			_heap[block]._block_metadata._num_chunks);
-
-		// Advance the list index
-		block = _heap[block]._next_free;
-	}
 }
 
 void ListHeap::Free(DefraggablePointerControlBlock &ptr)
@@ -302,9 +286,6 @@ void ListHeap::Free(DefraggablePointerControlBlock &ptr)
 		SIMDMemSet(&prev + 1, MERGE_PATTERN, prev._block_metadata._num_chunks - 1);
 #endif
 	}
-
-	// Update heap statistics
-	UpdateMaxFreeContiguousChunks();
 }
 
 IndexType ListHeap::FindNearestFreeBlock(IndexType index) const
@@ -330,9 +311,6 @@ void ListHeap::FullDefrag()
 {
 	while (!IterateHeap(false))
 		;
-
-	// Update heap statistics
-	UpdateMaxFreeContiguousChunks();
 }
 
 bool ListHeap::IterateHeap()
@@ -414,10 +392,6 @@ bool ListHeap::IterateHeap(const bool update_stats)
 		SIMDMemSet(&block + 1, MERGE_PATTERN, block._block_metadata._num_chunks - 1);
 #endif
 	}
-
-	// Update heap statistics
-	if (update_stats)
-		UpdateMaxFreeContiguousChunks();
 
 	return IsFullyDefragmented();
 }

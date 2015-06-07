@@ -94,11 +94,6 @@ protected:
 	*	@param index the index of the free block
 	*/
 	void InsertFreeBlock(IndexType root, IndexType index);
-
-	/**
-	*	Updates the max free contiguous chunks value. 
-	*/
-	void UpdateMaxFreeContiguousChunks();
 	
 	/**
 	*	Iterates the defragmentation process on the heap.
@@ -125,9 +120,6 @@ protected:
 
 	/**< The total number of free chunks in the heap. */
 	IndexType _free_chunks;
-
-	/**< The maximum number of contiguous chunks in the heap. */
-	IndexType _max_contiguous_free_chunks;
 
 	/**< The list of defraggable pointers for this heap. */
 	DefraggablePointerList _pointer_list;
