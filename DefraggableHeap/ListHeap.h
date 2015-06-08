@@ -96,15 +96,6 @@ protected:
 	void InsertFreeBlock(IndexType root, IndexType index);
 	
 	/**
-	*	Iterates the defragmentation process on the heap.
-	*	Heap is still valid for use after a call to this method.
-	*
-	*	@param update_stats should we update stats for the heap
-	*	@returns true if the heap is now fully defragmented
-	*/
-	bool IterateHeap(const bool update_stats);
-
-	/**
 	*	Finds the the nearest free block with a smaller offset in the freelist.
 	*
 	*	@param index the reference block index to find

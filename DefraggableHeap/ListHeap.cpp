@@ -5,6 +5,8 @@
 #include "AlignedAllocator.h"
 #include "SIMDMem.h"
 
+#include <iostream>
+
 #include <cassert>
 #include <new>
 #include <algorithm>
@@ -309,16 +311,12 @@ IndexType ListHeap::FindNearestFreeBlock(IndexType index) const
 
 void ListHeap::FullDefrag()
 {
-	while (!IterateHeap(false))
+	while (!IterateHeap())
 		;
 }
 
-bool ListHeap::IterateHeap()
-{
-	return IterateHeap(true);
-}
 
-bool ListHeap::IterateHeap(const bool update_stats)
+bool ListHeap::IterateHeap()
 {
 	// Do we actually need to defrag the heap
 	if (IsFullyDefragmented())

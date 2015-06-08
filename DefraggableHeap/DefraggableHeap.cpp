@@ -48,7 +48,7 @@ double GetDuration(Counter c)
 	return double(li.QuadPart - c) / TIMING_SCALE;
 }
 
-static const size_t HEAP_SIZE = 1024 * 1024 * 64; // 32MB heap
+static const size_t HEAP_SIZE = 1024 * 1024 * 4; // 32MB heap
 static const size_t ALLOC_SIZE = 1024;
 static const size_t CHUNKS = HEAP_SIZE / 16;
 
@@ -113,6 +113,7 @@ void RunBenchmark(PreBenchmark& pre_benchmark, Benchmark& benchmark, PostBenchma
 		pre_benchmark();
 		benchmark();
 		post_benchmark();
+		std::cout << "Warmup: " << i << std::endl;
 	}
 
 	// Run the actual benchmark
@@ -128,6 +129,7 @@ void RunBenchmark(PreBenchmark& pre_benchmark, Benchmark& benchmark, PostBenchma
 		time_log.push_back(GetDuration(start_time));
 
 		post_benchmark();
+		std::cout << "Run: " << i << std::endl;
 	}
 
 	// Display results
@@ -334,12 +336,21 @@ void RandomBenchmark(T& heap)
 	
 	std::mt19937 engine;
 	std::uniform_int_distribution<int> dist(0, 6);
-	static const size_t ITERATIONS = 2000000;
+	static const size_t ITERATIONS = 2000;
+
+	auto remove_random_item = [&]()
+	{
+		auto index = std::uniform_int_distribution<int>(0, blas.size() - 1)(engine);
+		auto it = blas.begin() + index;
+		heap.Free(*it);
+		blas.erase(it);
+	};
 
 	auto pre_benchmark = [&]()
 	{
 		// Reset the random generator
-		engine.seed(SEED);
+		new (&engine) std::mt19937();
+		engine.seed(SEED); 
 	};
 
 	auto benchmark = [&]()
@@ -360,15 +371,6 @@ void RandomBenchmark(T& heap)
 				// Allocate some data
 				if (auto alloc = heap.Allocate(ALLOC_SIZE))
 					blas.push_back(std::move(alloc));
-				else if (!blas.empty())
-				{
-					heap.Free(blas.back());
-					blas.pop_back();
-				}
-				else
-					// Do a little defragging
-					heap.IterateHeap();
-				
 			}
 			break;
 			case 4:
@@ -377,12 +379,8 @@ void RandomBenchmark(T& heap)
 				// Free some data
 				if (!blas.empty())
 				{
-					heap.Free(blas.back());
-					blas.pop_back();
+					remove_random_item();
 				}
-				else
-					// Do a little defragging
-					heap.IterateHeap();
 			}
 			break;
 			case 6:
@@ -460,8 +458,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	
 		Applies random behaviour to the heaps.
 	**/
-	RandomBenchmark(list);
-	RandomBenchmark(splay);
+	//RandomBenchmark(list);
+	//RandomBenchmark(splay);
 
 	int x;
 	std::cin >> x;
