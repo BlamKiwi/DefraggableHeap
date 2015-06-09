@@ -48,7 +48,7 @@ double GetDuration(Counter c)
 	return double(li.QuadPart - c) / TIMING_SCALE;
 }
 
-static const size_t HEAP_SIZE = 1024 * 1024 * 32; // 32MB heap
+static const size_t HEAP_SIZE = 1024 * 1024 * 64; // 64MB heap
 static const size_t ALLOC_SIZE = 1024;
 static const size_t CHUNKS = HEAP_SIZE / 16;
 
@@ -336,7 +336,7 @@ void RandomBenchmark(T& heap)
 	
 	std::mt19937 engine;
 	std::uniform_int_distribution<int> dist(0, 6);
-	static const size_t ITERATIONS = 2000;
+	static const size_t ITERATIONS = 1000000;
 
 	auto remove_random_item = [&]()
 	{
@@ -367,6 +367,7 @@ void RandomBenchmark(T& heap)
 			case 0:
 			case 1:
 			case 2:
+			
 			{
 				//std::cout << "allocate";
 				// Allocate some data
