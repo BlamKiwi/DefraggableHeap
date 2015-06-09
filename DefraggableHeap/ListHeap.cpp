@@ -11,6 +11,10 @@
 #include <new>
 #include <algorithm>
 
+#include <iterator>
+#include <set>
+#include <vector>
+
 ListHeap::ListHeap(size_t size)
 {
 	// Make sure heap size is multiples of 16 bytes
@@ -40,10 +44,14 @@ ListHeap::ListHeap(size_t size)
 
 	// Setup heap tracking state
 	_free_chunks = free;
+
+	AssertHeapInvariants();
 }
 
 ListHeap::~ListHeap()
 {
+	AssertHeapInvariants();
+
 	_pointer_list.RemoveAll();
 
 	// Delete the system heap
@@ -52,6 +60,8 @@ ListHeap::~ListHeap()
 
 float ListHeap::FragmentationRatio() const
 {
+	AssertHeapInvariants();
+
 	// Heap is not fragmented if we are at full load
 	// This doesn't take into account free blocks of 0 size that might exist
 	if (!_free_chunks)
@@ -81,12 +91,16 @@ float ListHeap::FragmentationRatio() const
 
 bool ListHeap::IsFullyDefragmented() const
 {
+	AssertHeapInvariants();
+
 	// The heap is fully defragmented if there is <2 free blocks
 	return _heap[NULL_INDEX]._next_free == _heap[NULL_INDEX]._prev_free;
 }
 
 IndexType ListHeap::FindFreeBlock( IndexType num_chunks) const
 {
+	AssertHeapInvariants();
+
 	// Start searching at the first non null node
 	IndexType block = _heap[NULL_INDEX]._next_free;
 
@@ -106,6 +120,8 @@ IndexType ListHeap::FindFreeBlock( IndexType num_chunks) const
 
 DefraggablePointerControlBlock ListHeap::Allocate(size_t num_bytes)
 {
+	AssertHeapInvariants();
+
 	// An allocation of 0 bytes is redundant
 	if (!num_bytes)
 		return nullptr;
@@ -161,10 +177,17 @@ DefraggablePointerControlBlock ListHeap::Allocate(size_t num_bytes)
 		// Insert new free block into the free list
 		InsertFreeBlock(prev_free, new_free_index);
 
+		// Restore previous cycle of heap
+		IndexType next = new_free_index + _heap[new_free_index]._block_metadata._num_chunks;
+		if (next < _num_chunks)
+			_heap[next]._prev = new_free_index;
+
 #ifdef _DEBUG
 			SIMDMemSet(&_heap[new_free_index + 1], SPLIT_PATTERN, _heap[new_free_index]._block_metadata._num_chunks - 1);
 #endif
 	}
+
+	AssertHeapInvariants();
 
 	// Possible strict aliasing problem?
 	return _pointer_list.Create(&block + 1);
@@ -210,6 +233,8 @@ void ListHeap::InsertFreeBlock(IndexType root, IndexType index)
 
 void ListHeap::Free(DefraggablePointerControlBlock &ptr)
 {
+	AssertHeapInvariants();
+
 	void* data = ptr.Get();
 
 	// We cannot free the null pointer
@@ -244,6 +269,9 @@ void ListHeap::Free(DefraggablePointerControlBlock &ptr)
 #ifdef _DEBUG
 	SIMDMemSet(&block + 1, FREED_PATTERN, block._block_metadata._num_chunks - 1);
 #endif
+
+	// Track which nodes we modify last so we can restore the heap invariants
+	IndexType last_modified_node = new_offset;
 
 	// We possibly invalidated our heap invariant
 	// Does the right heap contain any potential free blocks
@@ -284,10 +312,20 @@ void ListHeap::Free(DefraggablePointerControlBlock &ptr)
 		// Grow the previous free block 
 		prev._block_metadata._num_chunks += block._block_metadata._num_chunks;
 
+		// Update which node we modified last
+		last_modified_node = block._prev_free;
+
 #ifdef _DEBUG
 		SIMDMemSet(&prev + 1, MERGE_PATTERN, prev._block_metadata._num_chunks - 1);
 #endif
 	}
+
+	// Restore previous cycle of heap
+	IndexType next = last_modified_node + _heap[last_modified_node]._block_metadata._num_chunks;
+	if (next < _num_chunks)
+		_heap[next]._prev = last_modified_node;
+
+	AssertHeapInvariants();
 }
 
 IndexType ListHeap::FindNearestFreeBlock(IndexType index) const
@@ -311,13 +349,19 @@ IndexType ListHeap::FindNearestFreeBlock(IndexType index) const
 
 void ListHeap::FullDefrag()
 {
+	AssertHeapInvariants();
+
 	while (!IterateHeap())
 		;
+
+	AssertHeapInvariants();
 }
 
 
 bool ListHeap::IterateHeap()
 {
+	AssertHeapInvariants();
+
 	// Do we actually need to defrag the heap
 	if (IsFullyDefragmented())
 		return true;
@@ -386,10 +430,205 @@ bool ListHeap::IterateHeap()
 		// Grow the current free block 
 		block._block_metadata._num_chunks += next._block_metadata._num_chunks;
 
+		// Restore previous cycle of heap
+		_heap[new_free_offset + _heap[new_free_offset]._block_metadata._num_chunks]._prev = new_free_offset;
+
 #ifdef _DEBUG
 		SIMDMemSet(&block + 1, MERGE_PATTERN, block._block_metadata._num_chunks - 1);
 #endif
 	}
 
+	AssertHeapInvariants();
+
 	return IsFullyDefragmented();
+}
+
+void ListHeap::AssertHeapInvariants() const
+{
+#ifdef _NDEBUG
+	// We don't want to call this in release code
+	return;
+#endif
+
+	/**
+	*	List heap uses a null sentinel node to simplify some heap operations.
+	*/
+	{
+		// Assert that the first block is the null node, is allocated and is one chunk large
+		assert(_heap[NULL_INDEX]._prev == NULL_INDEX);
+		assert(_heap[NULL_INDEX]._block_metadata._is_allocated);
+		assert(_heap[NULL_INDEX]._block_metadata._num_chunks == 1);
+	}
+
+	/**
+	*	List heap uses block sizes to track position in the heap. The sum of all the metadata block sizes should be the raw size of the heap.
+	*/
+	{
+		IndexType size = 0;
+		while (size < _num_chunks)
+		{
+			// Add block size to sum
+			size += _heap[size]._block_metadata._num_chunks;
+		}
+
+		// Assert size invariant
+		assert(size == _num_chunks);
+	}
+
+	/**
+	*	List heap keeps track of the previous block so we can navigate backwards.
+	*/
+	{
+		IndexType prev = 0;
+		IndexType current = 0;
+		do
+		{
+			// Assert previous invariant
+			assert(_heap[current]._prev == prev);
+
+			prev = current;
+			current += _heap[current]._block_metadata._num_chunks;
+		} while (current < _num_chunks);
+	}
+
+	/**
+	*	List heap follows the defraggable heap property that there are no two contiguous blocks free blocks (excluding any sentinel blocks).
+	*/
+	{
+		bool starting_alloc = !_heap[1]._block_metadata._is_allocated;
+		IndexType index = 1; // Start at not the null node
+		while (index < _num_chunks)
+		{
+			// Asert invariant
+			if (!_heap[index]._block_metadata._is_allocated)
+			{
+				assert(_heap[_heap[index]._prev]._block_metadata._is_allocated);
+			}
+
+
+			// Go to next block
+			index += _heap[index]._block_metadata._num_chunks;
+		}
+	}
+
+	/**
+	*	List heap tracks the total number of free chunks in the heap. This should be the sum of all the free block sizes.
+	*/
+	{
+		IndexType size = 0;
+		IndexType index = 0;
+		while (index < _num_chunks)
+		{
+			// Add block size to sum
+			if (!_heap[index]._block_metadata._is_allocated)
+				size += _heap[index]._block_metadata._num_chunks;
+
+			index += _heap[index]._block_metadata._num_chunks;
+		}
+
+		// Assert size invariant
+		assert(size == _free_chunks);
+	}
+
+	/**
+	*	List heap uses a free list to track the free blocks in the heap. Apart from the null node, only free blocks are in the list
+	*/
+	{
+		IndexType node = _heap[NULL_INDEX]._next_free;
+		while (node != NULL_INDEX)
+		{
+			assert(!_heap[node]._block_metadata._is_allocated);
+			node = _heap[node]._next_free;
+		}
+	}
+
+	/**
+	*	List heap free list should contain ALL and ONLY the free list blocks in the heap
+	*/
+	{
+		std::set<IndexType> free_list;
+		std::set<IndexType> heap;
+
+		// Collect free blocks in the heap
+		IndexType index = 1;
+		while (index < _num_chunks)
+		{
+			if (!_heap[index]._block_metadata._is_allocated)
+				heap.insert(index);
+
+			index += _heap[index]._block_metadata._num_chunks;
+		}
+
+		// Collect free blocks in the free list
+		IndexType node = _heap[NULL_INDEX]._next_free;
+		while (node != NULL_INDEX)
+		{
+			// Add block size to sum
+			free_list.insert(node);
+
+			node = _heap[node]._next_free;
+		}
+
+		// The difference between the freelist and raw free nodes in the heap should be the empty set
+		std::vector<IndexType> out;
+		std::set_symmetric_difference(free_list.begin(), free_list.end(), heap.begin(), heap.end(), std::insert_iterator<std::vector<IndexType>>(out, out.begin()));
+		assert(out.empty());
+	}
+
+	/**
+	*	List heap free list cycles should be symmetric
+	*/
+	{
+		std::vector<IndexType> next;
+		std::vector<IndexType> prev;
+
+		IndexType node = _heap[NULL_INDEX]._next_free;
+		while (node != NULL_INDEX)
+		{
+			next.push_back(node);
+
+			node = _heap[node]._next_free;
+		} 
+
+		node = _heap[NULL_INDEX]._prev_free;
+		do
+		{
+			prev.push_back(node);
+
+			node = _heap[node]._prev_free;
+		} while (node != NULL_INDEX);
+
+		auto fit = next.begin();
+		auto bit = prev.rbegin();
+		for (; fit != next.end() && bit != prev.rend(); fit++, bit++)
+			assert(*fit == *bit);
+	}
+
+	/**
+	*	List heap free list next cycle should be in increasing order
+	*/
+	{
+		IndexType node = NULL_INDEX;
+		IndexType next = _heap[NULL_INDEX]._next_free;
+		while (next != NULL_INDEX)
+		{
+			assert(node < next);
+			node = next;
+			next = _heap[next]._next_free;
+		}
+	}
+
+	/**
+	*	List heap free list prev cycle should be in decreasing order
+	*/
+	{
+		IndexType node = _heap[NULL_INDEX]._prev_free;
+		IndexType prev = _heap[node]._prev_free;
+		while (prev != NULL_INDEX)
+		{
+			assert(prev < node);
+			node = prev;
+			prev = _heap[prev]._prev_free;
+		}
+	}
 }

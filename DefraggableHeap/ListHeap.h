@@ -103,6 +103,11 @@ protected:
 	*/
 	IndexType FindNearestFreeBlock(IndexType index) const;
 
+	/**
+	*	Asserts invariants over the heap.
+	*/
+	void AssertHeapInvariants() const;
+
 	/**< The data heap we manage. */
 	ListHeader* _heap;
 

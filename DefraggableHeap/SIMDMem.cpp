@@ -23,6 +23,10 @@ void SIMDMemCopy(void* target, void* source, size_t num_chunks)
 	// Start copying the source to the target addresses
 	for (size_t i = 0; i < num_chunks; i++, t++, s++)
 	{
+		// Check that the given addresses are 16 byte aligned
+		assert(!((reinterpret_cast<intptr_t>(t)& 15)));
+		assert(!((reinterpret_cast<intptr_t>(s)& 15)));
+
 		// Load chunk from source address
 		const __m128i chunk = _mm_load_si128(s);
 		//__m128i chunk = _mm_stream_load_si128(s);
@@ -51,5 +55,10 @@ void SIMDMemSet(void* target, int pattern, size_t num_chunks)
 
 	// Start setting the target region in memory to the pattern register
 	for (size_t i = 0; i < num_chunks; i++, t++)
+	{
+		// Check that the given addresses are 16 byte aligned
+		assert(!((reinterpret_cast<intptr_t>(target)& 15)));
+
 		_mm_store_si128(t, chunk);
+	}
 }
