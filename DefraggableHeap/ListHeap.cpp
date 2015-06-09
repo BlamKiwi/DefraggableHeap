@@ -431,7 +431,9 @@ bool ListHeap::IterateHeap()
 		block._block_metadata._num_chunks += next._block_metadata._num_chunks;
 
 		// Restore previous cycle of heap
-		_heap[new_free_offset + _heap[new_free_offset]._block_metadata._num_chunks]._prev = new_free_offset;
+		IndexType node = new_free_offset + _heap[new_free_offset]._block_metadata._num_chunks;
+		if (node < _num_chunks)
+			_heap[node]._prev = new_free_offset;
 
 #ifdef _DEBUG
 		SIMDMemSet(&block + 1, MERGE_PATTERN, block._block_metadata._num_chunks - 1);
