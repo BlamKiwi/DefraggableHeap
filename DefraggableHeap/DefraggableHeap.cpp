@@ -48,8 +48,8 @@ double GetDuration(Counter c)
 	return double(li.QuadPart - c) / TIMING_SCALE;
 }
 
-static const size_t HEAP_SIZE = 1024 * 1024 * 64; // 64MB heap
-static const size_t ALLOC_SIZE = 1024;
+static const size_t HEAP_SIZE = 1024; // 64MB heap
+static const size_t ALLOC_SIZE = 8;
 static const size_t CHUNKS = HEAP_SIZE / 16;
 
 static const size_t RUNS = 5;
@@ -341,7 +341,7 @@ void RandomBenchmark(T& heap)
 	auto remove_random_item = [&]()
 	{
 		auto index = std::uniform_int_distribution<int>(0, blas.size() - 1)(engine);
-		//std::cout << "free," << index << std::endl;
+		std::cout << "free," << index << std::endl;
 		auto it = blas.begin() + index;
 		heap.Free(*it);
 		blas.erase(it);
@@ -369,18 +369,18 @@ void RandomBenchmark(T& heap)
 			case 2:
 			
 			{
-				//std::cout << "allocate";
+				std::cout << "allocate";
 				// Allocate some data
 				if (auto alloc = heap.Allocate(ALLOC_SIZE))
 				{
-					//std::cout << ",success";
+					std::cout << ",success";
 					blas.push_back(std::move(alloc));
 				}
 				else
 				{
-					//std::cout << ",fail";
+					std::cout << ",fail";
 				}
-			//	std::cout << std::endl;
+				std::cout << std::endl;
 				
 			}
 			break;
@@ -396,7 +396,7 @@ void RandomBenchmark(T& heap)
 			}
 			break;
 			case 6:
-				//std::cout << "iterate" << std::endl;
+				std::cout << "iterate" << std::endl;
 				// Do a little defragging
 				heap.IterateHeap();
 			break;
@@ -471,8 +471,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	
 		Applies random behaviour to the heaps.
 	**/
-	RandomBenchmark(list);
-	//RandomBenchmark(splay);
+	//RandomBenchmark(list);
+	RandomBenchmark(splay);
 
 	int x;
 	std::cin >> x;

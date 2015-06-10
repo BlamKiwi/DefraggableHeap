@@ -9,6 +9,7 @@
 #include <new>
 #include <algorithm>
 
+#include <deque>
 
 #include "SplayHeader.h"
 
@@ -33,10 +34,10 @@ SplayHeap::SplayHeap(size_t size)
 	_heap = static_cast<SplayHeader*>(AlignedNew(total_size, 16));
 
 	// Setup the null sentinel node
-	new (&_heap[NULL_INDEX]) SplayHeader(NULL_INDEX, NULL_INDEX, 0, ALLOCATED);
-	UpdateNodeStatistics(_heap[NULL_INDEX]);
+	new (&_heap[NULL_INDEX]) SplayHeader(NULL_INDEX, NULL_INDEX, 1, ALLOCATED);
 
-	/* Splay header can be left unallocated */
+	// Setup the splay header to a known initial state
+	new (&_heap[SPLAY_HEADER_INDEX]) SplayHeader(NULL_INDEX, NULL_INDEX, 1, ALLOCATED);
 
 	// Setup the root node
 	_root_index = 2;
@@ -49,6 +50,7 @@ SplayHeap::SplayHeap(size_t size)
 		SIMDMemSet(&_heap[_root_index + 1], INIT_PATTERN, _heap[_root_index]._block_metadata._num_chunks - 1);
 #endif
 
+		AssertHeapInvariants();
 }
 
 void SplayHeap::UpdateNodeStatistics(SplayHeader &node)
@@ -67,6 +69,8 @@ void SplayHeap::UpdateNodeStatistics(SplayHeader &node)
 
 SplayHeap::~SplayHeap()
 {
+	AssertHeapInvariants();
+
 	_pointer_list.RemoveAll();
 
 	// Delete the system heap
@@ -75,6 +79,8 @@ SplayHeap::~SplayHeap()
 
 float SplayHeap::FragmentationRatio() const
 {
+	AssertHeapInvariants();
+
 	// Heap is not fragmented if we are at full load
 	// This doesn't take into account free blocks of 0 size that might exist
 	if (!_free_chunks)
@@ -139,6 +145,8 @@ IndexType SplayHeap::RotateWithRightChild( IndexType k1 )
 
 IndexType SplayHeap::FindFreeBlock( IndexType t, IndexType num_chunks ) const
 {
+	AssertHeapInvariants();
+
 	// Is there even enough space in the tree to make an allocation
 	if (_heap[t]._max_contiguous_free_chunks < num_chunks)
 		return NULL_INDEX;
@@ -166,7 +174,7 @@ IndexType SplayHeap::FindFreeBlock( IndexType t, IndexType num_chunks ) const
 IndexType SplayHeap::Splay(IndexType value, IndexType t)
 {
 	// Setup splay tracking state
-	new (&_heap[SPLAY_HEADER_INDEX]) SplayHeader(NULL_INDEX, NULL_INDEX, 0, ALLOCATED);
+	new (&_heap[SPLAY_HEADER_INDEX]) SplayHeader(NULL_INDEX, NULL_INDEX, 1, ALLOCATED);
 	IndexType left_tree_max = SPLAY_HEADER_INDEX, right_tree_min = SPLAY_HEADER_INDEX;
 
 	// Simulate a null node with a reassignable value
@@ -252,6 +260,7 @@ IndexType SplayHeap::Splay(IndexType value, IndexType t)
 
 DefraggablePointerControlBlock SplayHeap::Allocate(size_t num_bytes)
 {
+	AssertHeapInvariants();
 	// An allocation of 0 bytes is redundant
 	if (!num_bytes)
 		return nullptr;
@@ -259,7 +268,7 @@ DefraggablePointerControlBlock SplayHeap::Allocate(size_t num_bytes)
 	// Calculate the number of chunks required to fulfil the request
 	const size_t mask = 16 - 1;
 	const auto offset = (16 - (num_bytes & mask)) & mask;
-	const auto required_chunks = ((num_bytes + offset) / 16) + 1;
+	const IndexType required_chunks = ((num_bytes + offset) / 16) + 1;
 	assert(required_chunks);
 
 	// Do we have enough contiguous space for the allocation
@@ -270,6 +279,7 @@ DefraggablePointerControlBlock SplayHeap::Allocate(size_t num_bytes)
 	const auto free_block = FindFreeBlock(_root_index, required_chunks);
 	assert(free_block);
 	_root_index = Splay(free_block, _root_index);
+	AssertHeapInvariants();
 
 	/* Split the root free block into two, one allocated block and one free block */
 
@@ -323,12 +333,15 @@ DefraggablePointerControlBlock SplayHeap::Allocate(size_t num_bytes)
 	// Update root node statistics
 	UpdateNodeStatistics(_heap[_root_index]);
 
+	AssertHeapInvariants();
+
 	// Possible strict aliasing problem?
 	return _pointer_list.Create(&_heap[old_index + 1]);
 }
 
 void SplayHeap::Free(DefraggablePointerControlBlock& ptr)
 {
+	AssertHeapInvariants();
 	void* data = ptr.Get();
 
 	// We cannot free the null pointer
@@ -349,10 +362,12 @@ void SplayHeap::Free(DefraggablePointerControlBlock& ptr)
 
 	// Splay the block to free to the root of the tree
 	_root_index = Splay(offset - 1, _root_index);
+	AssertHeapInvariants();
 
 	// Mark the root as being free
 	_heap[_root_index]._block_metadata._is_allocated = FREE;
 	_free_chunks += _heap[_root_index]._block_metadata._num_chunks;
+	
 
 	// Invalidate defraggable pointers that point into the root block before we invalidate data in the heap
 //	RemovePointersInRange(_root_index, _root_index + _heap[_root_index]._block_metadata._num_chunks);
@@ -415,21 +430,27 @@ void SplayHeap::Free(DefraggablePointerControlBlock& ptr)
 
 	// Update root node statistics
 	UpdateNodeStatistics(_heap[_root_index]);
+
+	AssertHeapInvariants();
 }
 
 void SplayHeap::FullDefrag()
 {
+	AssertHeapInvariants();
 	while (!IterateHeap())
 		;
+	AssertHeapInvariants();
 }
 
 bool SplayHeap::IsFullyDefragmented() const
 {
+	AssertHeapInvariants();
 	return _heap[_root_index]._max_contiguous_free_chunks == _free_chunks;
 }
 
 bool SplayHeap::IterateHeap()
 {
+	AssertHeapInvariants();
 	// Do we actually need to defrag the heap
 	if (IsFullyDefragmented())
 		return true;
@@ -438,6 +459,7 @@ bool SplayHeap::IterateHeap()
 	// This will put the fully defragmented subheap in the left subtree
 	const auto free_block = FindFreeBlock(_root_index, 1);
 	_root_index = Splay(free_block, _root_index);
+	AssertHeapInvariants();
 	
 	// Splay the next block in the heap up from the right subtree
 	auto right = Splay(_root_index + 1, _heap[_root_index]._right);
@@ -510,5 +532,233 @@ bool SplayHeap::IterateHeap()
 			_heap[_root_index]._right = right;
 	}
 
+	AssertHeapInvariants();
+
 	return IsFullyDefragmented( );
+}
+void SplayHeap::AssertHeapInvariants() const
+{
+#ifdef _NDEBUG
+	// We don't want to call this in release code
+	return;
+#endif
+
+	/**
+	*	Splay heap uses a null sentinel node to simplify some heap operations.
+	*/
+	{
+		// Assert that the first block is the null node, is allocated and is one chunk large
+		assert(_heap[NULL_INDEX]._left == NULL_INDEX);
+		assert(_heap[NULL_INDEX]._right == NULL_INDEX);
+		assert(_heap[NULL_INDEX]._block_metadata._is_allocated);
+		assert(_heap[NULL_INDEX]._block_metadata._num_chunks == 1);
+		assert(_heap[NULL_INDEX]._max_contiguous_free_chunks == 0);
+	}
+
+	/**
+	*	Splay heap uses a splay header to perform top down splays. 
+	*/
+	{
+		// Assert that the second block is the header, is allocated and is one chunk large
+		assert(_heap[SPLAY_HEADER_INDEX]._block_metadata._is_allocated);
+		assert(_heap[SPLAY_HEADER_INDEX]._block_metadata._num_chunks == 1);
+
+		/* The children of the splay header may be arbitrary values. */
+	}
+
+	/**
+	*	Splay heap uses block sizes to track position in the heap. The sum of all the metadata block sizes should be the raw size of the heap.
+	*/
+	{
+		IndexType size = 0;
+		while (size < _num_chunks)
+		{
+			// Add block size to sum
+			size += _heap[size]._block_metadata._num_chunks;
+		}
+
+		// Assert size invariant
+		assert(size == _num_chunks);
+	}
+
+	/**
+	*	Splay heap follows the defraggable heap property that there are no two contiguous blocks free blocks.
+	*/
+	{
+		bool starting_alloc = !_heap[2]._block_metadata._is_allocated;
+		IndexType prev = 0; // Start at the null and header nodes, these should both follow these invariant
+		IndexType current = 1;
+		while (current < _num_chunks)
+		{
+			// Asert invariant
+			if (!_heap[current]._block_metadata._is_allocated)
+			{
+				assert(_heap[prev]._block_metadata._is_allocated);
+			}
+
+
+			// Go to next block
+			prev = current;
+			current += _heap[current]._block_metadata._num_chunks;
+		}
+	}
+
+	/**
+	*	Splay heap tracks the total number of free chunks in the heap. This should be the sum of all the free block sizes.
+	*/
+	{
+		IndexType size = 0;
+		IndexType index = 0;
+		while (index < _num_chunks)
+		{
+			// Add block size to sum
+			if (!_heap[index]._block_metadata._is_allocated)
+				size += _heap[index]._block_metadata._num_chunks;
+
+			index += _heap[index]._block_metadata._num_chunks;
+		}
+
+		// Assert size invariant
+		assert(size == _free_chunks);
+	}
+
+	/**
+	*	Splay heap uses a tree structure to manage blocks. An inorder traversal should match the heap structure exactly.
+	*/
+	{
+		// Flatten the tree
+		std::deque<IndexType> tree;
+		IndexType node = _root_index;
+		IndexType current = 2;
+
+		// Perform inorder traversal 
+		while (true)
+		{
+			// Have we reached the null node
+			if (node)
+			{
+				// Push current node on the stack to visit later
+				tree.push_back(node);
+				node = _heap[node]._left;
+			}
+			else
+			{
+				// We found a null node
+				// Do we have more nodes to visit
+				if (!tree.empty())
+				{
+					// We should be still inside the heap
+					assert(current < _num_chunks);
+
+					// Visit last node on stack
+					node = tree.back();
+					tree.pop_back();
+					
+					// Assert that the current positions match in the heap
+					assert(current == node);
+
+					// Advance down right subtree
+					node = _heap[node]._right;
+
+					// Advance raw heap position
+					current += _heap[current]._block_metadata._num_chunks;
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
+
+		// We should be at the end of the heap
+		assert(current == _num_chunks);
+	}
+
+	/**
+	*	Splay heap uses a max contiguous free chunk tree statistic to speed up searching. This maximum must be valid at all tree levels. 
+	*/
+	{
+		// Push root node onto the tracking stack
+		std::deque<IndexType> tree;
+		std::deque<IndexType> max;
+		tree.push_back(_root_index);
+		IndexType prev = NULL_INDEX;
+
+		// Perform pre order traversal and calculate heirachical max
+		while (!tree.empty())
+		{
+			// Get the current node
+			IndexType curr = tree.back();
+
+			// Have we found an inner node
+			if (!prev || _heap[prev]._left == curr || _heap[prev]._right == curr)
+			{
+				// Do we have a left subtree to traverse down
+				if (_heap[curr]._left)
+					tree.push_back(_heap[curr]._left);
+				// Or do we have a right subtree to traverse down
+				else if (_heap[curr]._right)
+					tree.push_back(_heap[curr]._right);
+			}
+			// Have we found a previously visisted node
+			else if (_heap[curr]._left == prev)
+			{
+				// Do we have a right subtree to visist
+				if (_heap[curr]._right)
+					tree.push_back(_heap[curr]._right);
+			}
+			else
+			{
+				// Visit the current node
+
+				// Calculate the current max contiguous chunks at this node
+				IndexType max_contiguous_chunks = 0;
+
+				// Update max for current node
+				if (!_heap[curr]._block_metadata._is_allocated)
+					max_contiguous_chunks = _heap[curr]._block_metadata._num_chunks;
+
+				// Do we have a right subtree
+				if (_heap[curr]._right)
+				{
+					assert(!max.empty());
+
+					// Update the current max based on previous calculated max
+					max_contiguous_chunks = std::max(max_contiguous_chunks, max.back());
+
+					// Consume the max value
+					max.pop_back();
+				}
+
+				// Do we have a left subtree
+				if (_heap[curr]._left)
+				{
+					assert(!max.empty());
+
+					// Update the current max based on previous calculated max
+					max_contiguous_chunks = std::max(max_contiguous_chunks, max.back());
+
+					// Consume the max value
+					max.pop_back();
+				}
+
+				// Assert that the cached and calculated maxes are the same
+				assert(max_contiguous_chunks == _heap[curr]._max_contiguous_free_chunks);
+
+				// Push result to max stack
+				max.push_back(max_contiguous_chunks);
+
+				// Node visisted, remove from tree stack
+				tree.pop_back();
+			}
+
+			// Note which node we visisted last
+			prev = curr;
+		}
+
+		// The value at the top of the max stack should be the same as the cached root max
+		assert(tree.empty());
+		assert(!max.empty());
+		assert(_heap[_root_index]._max_contiguous_free_chunks == max.back());
+	}
 }

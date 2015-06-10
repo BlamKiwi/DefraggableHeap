@@ -110,6 +110,11 @@ protected:
 	*/
 	IndexType RotateWithRightChild(IndexType k1);
 
+	/**
+	*	Asserts invariants over the heap.
+	*/
+	void AssertHeapInvariants() const;
+
 	/**< The data heap we manage. */
 	SplayHeader* _heap;
 
