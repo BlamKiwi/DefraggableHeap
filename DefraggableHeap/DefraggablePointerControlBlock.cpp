@@ -6,8 +6,8 @@
 
 DefraggablePointerControlBlock::DefraggablePointerControlBlock()
 	: _data(nullptr)
-	, _prev(nullptr)
 	, _next(nullptr)
+	, _prev(nullptr)
 {
 
 }

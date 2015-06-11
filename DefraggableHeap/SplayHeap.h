@@ -3,7 +3,7 @@
 #include "DefraggablePointerList.h"
 #include "HeapCommon.h"
 
-class SplayHeader;
+struct SplayHeader;
 
 /**
 *	A defraggable heap implemented as a splay tree.

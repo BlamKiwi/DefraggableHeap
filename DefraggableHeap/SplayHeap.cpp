@@ -743,7 +743,9 @@ void SplayHeap::AssertHeapInvariants() const
 				}
 
 				// Assert that the cached and calculated maxes are the same
-				assert(max_contiguous_chunks == _heap[curr]._max_contiguous_free_chunks);
+				//assert(max_contiguous_chunks == _heap[curr]._max_contiguous_free_chunks);
+				if (max_contiguous_chunks != _heap[curr]._max_contiguous_free_chunks)
+					throw std::runtime_error("exec");
 
 				// Push result to max stack
 				max.push_back(max_contiguous_chunks);

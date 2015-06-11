@@ -3,7 +3,7 @@
 
 #include <tuple>
 
-class ListHeader;
+struct ListHeader;
 
 /**
 *	A defraggable heap implemented as a doubly linked list.

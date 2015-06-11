@@ -18,6 +18,8 @@
 
 #include <windows.h>
 
+std::vector<std::tuple<int, int>> splay_log;
+
 double GetTiming()
 {
 	LARGE_INTEGER li;
@@ -83,7 +85,7 @@ std::vector<uint32_t> EratosthenesSieve(uint32_t upper_bound)
 	uint32_t sqr = uint32_t(sqrt((double)upper_bound));
 
 	// Run the sieve of eratosthenes up to the square root of the upper bound
-	for (int m = 2; m <= sqr; m++) {
+	for (uint32_t m = 2; m <= sqr; m++) {
 		// If we have not visited this number before, we are prime
 		if (!is_composite[m]) {
 			
@@ -91,13 +93,13 @@ std::vector<uint32_t> EratosthenesSieve(uint32_t upper_bound)
 			res.push_back(m);
 
 			// Mark all composites of this prime
-			for (int k = m * m; k <= upper_bound; k += m)
+			for (uint32_t k = m * m; k <= upper_bound; k += m)
 				is_composite[k] = true;
 		}
 	}
 
 	// We have covered all composite numbers, add remaining primes to the output list
-	for (int m = sqr; m <= upper_bound; m++)
+	for (uint32_t m = sqr; m <= upper_bound; m++)
 		if (!is_composite[m])
 			res.push_back(m);
 
@@ -342,6 +344,7 @@ void RandomBenchmark(T& heap)
 	{
 		auto index = std::uniform_int_distribution<int>(0, blas.size() - 1)(engine);
 		std::cout << "free," << index << std::endl;
+		splay_log.push_back(std::make_tuple(1, index));
 		auto it = blas.begin() + index;
 		heap.Free(*it);
 		blas.erase(it);
@@ -370,6 +373,7 @@ void RandomBenchmark(T& heap)
 			
 			{
 				std::cout << "allocate";
+				splay_log.push_back(std::make_tuple(0, 0));
 				// Allocate some data
 				if (auto alloc = heap.Allocate(ALLOC_SIZE))
 				{
@@ -398,6 +402,7 @@ void RandomBenchmark(T& heap)
 			case 6:
 				std::cout << "iterate" << std::endl;
 				// Do a little defragging
+				splay_log.push_back(std::make_tuple(2, 0));
 				heap.IterateHeap();
 			break;
 			}
@@ -417,7 +422,7 @@ void RandomBenchmark(T& heap)
 	RunBenchmark(pre_benchmark, benchmark, post_benchmark, heap, "Random Benchmark");
 }
 
-int _tmain(int argc, _TCHAR* argv[])
+int _tmain(int , _TCHAR*[])
 {
 	TIMING_SCALE = GetTiming();
 	SEED = SamplePerformanceCounter();
@@ -472,7 +477,79 @@ int _tmain(int argc, _TCHAR* argv[])
 		Applies random behaviour to the heaps.
 	**/
 	//RandomBenchmark(list);
-	RandomBenchmark(splay);
+	try {
+		RandomBenchmark(splay);
+	}
+	catch (const std::runtime_error& ex)
+	{
+		SplayHeap test(HEAP_SIZE);
+		std::vector<DefraggablePointerControlBlock> blas;
+		blas.reserve(CHUNKS / 2);
+
+		std::reverse(splay_log.begin(), splay_log.end());
+
+		// Get test heap back to state just before failure
+		while (splay_log.size() > 1)
+		{
+			// Pop action off
+			auto res = splay_log.back();
+			splay_log.pop_back();
+
+			switch (std::get<0>(res))
+			{
+			case 0:
+				if (auto alloc = test.Allocate(ALLOC_SIZE))
+				{
+					blas.push_back(std::move(alloc));
+				}
+				break;
+			case 1:
+			{
+				auto index = std::get<1>(res);
+				auto it = blas.begin() + index;
+				test.Free(*it);
+				blas.erase(it);
+			}
+				break;
+			case 2:
+				test.IterateHeap();
+				break;
+			}
+		}
+
+		__debugbreak();
+
+		// Pop action off
+		auto res = splay_log.back();
+		splay_log.pop_back();
+
+		switch (std::get<0>(res))
+		{
+		case 0:
+			if (auto alloc = test.Allocate(ALLOC_SIZE))
+			{
+				blas.push_back(std::move(alloc));
+			}
+			break;
+		case 1:
+		{
+			auto index = std::get<1>(res);
+			auto it = blas.begin() + index;
+			test.Free(*it);
+			blas.erase(it);
+		}
+		break;
+		case 2:
+			test.IterateHeap();
+			break;
+		}
+	}
+	/*auto p = splay.Allocate(ALLOC_SIZE);
+	splay.Allocate(ALLOC_SIZE);
+	splay.Allocate(ALLOC_SIZE);
+	splay.Free(p);
+	splay.Allocate(ALLOC_SIZE);
+	splay.Allocate(ALLOC_SIZE);*/
 
 	int x;
 	std::cin >> x;
