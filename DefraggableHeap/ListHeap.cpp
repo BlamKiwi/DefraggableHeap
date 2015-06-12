@@ -447,7 +447,7 @@ bool ListHeap::IterateHeap()
 
 void ListHeap::AssertHeapInvariants() const
 {
-#ifdef _NDEBUG
+#ifdef NDEBUG
 	// We don't want to call this in release code
 	return;
 #endif

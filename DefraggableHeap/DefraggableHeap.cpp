@@ -50,8 +50,8 @@ double GetDuration(Counter c)
 	return double(li.QuadPart - c) / TIMING_SCALE;
 }
 
-static const size_t HEAP_SIZE = 1024; // 64MB heap
-static const size_t ALLOC_SIZE = 8;
+static const size_t HEAP_SIZE = 1024 * 1024 * 64; // 64MB heap
+static const size_t ALLOC_SIZE = 1024;
 static const size_t CHUNKS = HEAP_SIZE / 16;
 
 static const size_t RUNS = 5;
@@ -338,12 +338,12 @@ void RandomBenchmark(T& heap)
 	
 	std::mt19937 engine;
 	std::uniform_int_distribution<int> dist(0, 6);
-	static const size_t ITERATIONS = 1000000;
+	static const size_t ITERATIONS = 100000;
 
 	auto remove_random_item = [&]()
 	{
 		auto index = std::uniform_int_distribution<int>(0, blas.size() - 1)(engine);
-		std::cout << "free," << index << std::endl;
+		//std::cout << "free," << index << std::endl;
 		splay_log.push_back(std::make_tuple(1, index));
 		auto it = blas.begin() + index;
 		heap.Free(*it);
@@ -370,25 +370,25 @@ void RandomBenchmark(T& heap)
 			case 0:
 			case 1:
 			case 2:
-			
+			case 3:
 			{
-				std::cout << "allocate";
+				//std::cout << "allocate";
 				splay_log.push_back(std::make_tuple(0, 0));
 				// Allocate some data
 				if (auto alloc = heap.Allocate(ALLOC_SIZE))
 				{
-					std::cout << ",success";
+				//	std::cout << ",success";
 					blas.push_back(std::move(alloc));
 				}
 				else
 				{
-					std::cout << ",fail";
+					//std::cout << ",fail";
 				}
-				std::cout << std::endl;
+				//std::cout << std::endl;
 				
 			}
 			break;
-			case 3:
+			
 			case 4:
 			case 5:
 			{
@@ -400,7 +400,7 @@ void RandomBenchmark(T& heap)
 			}
 			break;
 			case 6:
-				std::cout << "iterate" << std::endl;
+				//std::cout << "iterate" << std::endl;
 				// Do a little defragging
 				splay_log.push_back(std::make_tuple(2, 0));
 				heap.IterateHeap();
@@ -461,7 +461,7 @@ int _tmain(int , _TCHAR*[])
 		Benchmarks the performance of the Free function for the heaps using prime strides.
 	**/
 	//PrimeStrideFreeBenchmark(list);
-	//PrimeStrideFreeBenchmark(splay);
+	PrimeStrideFreeBenchmark(splay);
 
 	/**
 		--- Stack Free Benchmark ---
@@ -477,8 +477,9 @@ int _tmain(int , _TCHAR*[])
 		Applies random behaviour to the heaps.
 	**/
 	//RandomBenchmark(list);
-	try {
-		RandomBenchmark(splay);
+	//RandomBenchmark( splay );
+	/*try {
+		
 	}
 	catch (const std::runtime_error& ex)
 	{
@@ -543,7 +544,7 @@ int _tmain(int , _TCHAR*[])
 			test.IterateHeap();
 			break;
 		}
-	}
+	}*/
 	/*auto p = splay.Allocate(ALLOC_SIZE);
 	splay.Allocate(ALLOC_SIZE);
 	splay.Allocate(ALLOC_SIZE);

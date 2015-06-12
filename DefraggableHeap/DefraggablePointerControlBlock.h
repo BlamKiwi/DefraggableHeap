@@ -35,12 +35,6 @@ public:
 	*	Constructs a null defraggable pointer.
 	*/
 	DefraggablePointerControlBlock(nullptr_t);
-	
-	/**
-	*	Const copying defraggable pointers is disallowed. 
-	*	Inserting a new pointer requires modifying the list members. 
-	*/
-	DefraggablePointerControlBlock(const DefraggablePointerControlBlock &) = delete;
 
 	/**
 	*	Copy constructor for defraggable pointers. 
@@ -55,12 +49,6 @@ public:
 	*	@param other the pointer to move.
 	*/
 	DefraggablePointerControlBlock(DefraggablePointerControlBlock &&other);
-
-	/**
-	*	Const copying defraggable pointers is disallowed.
-	*	Inserting a new pointer requires modifying the list members.
-	*/
-	DefraggablePointerControlBlock& operator=(const DefraggablePointerControlBlock &) = delete;
 
 	/**
 	*	Copy assignment for defraggable pointers.

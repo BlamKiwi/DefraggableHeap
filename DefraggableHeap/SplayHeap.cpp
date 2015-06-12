@@ -176,12 +176,13 @@ IndexType SplayHeap::Splay(IndexType value, IndexType t)
 	// Setup splay tracking state
 	new (&_heap[SPLAY_HEADER_INDEX]) SplayHeader(NULL_INDEX, NULL_INDEX, 1, ALLOCATED);
 	IndexType left_tree_max = SPLAY_HEADER_INDEX, right_tree_min = SPLAY_HEADER_INDEX;
+	IndexType last_splayed_node = SPLAY_HEADER_INDEX;
 
 	// Simulate a null node with a reassignable value
 	IndexType lut[] = { value, NULL_INDEX };
 	auto lookup = [&](IndexType v) { 
 		lut[1] = v;
-		return lut[bool(v)]; 
+		return lut[v > 0]; 
 	};
 
 	// Continually rotate the tree until we splay the desired value
@@ -205,7 +206,10 @@ IndexType SplayHeap::Splay(IndexType value, IndexType t)
 			// t is now a minimum value
 			// Link right state tree
 			r._left = t;
-			UpdateNodeStatistics(r);
+
+			// Add node to change list
+			_heap [ t ]._max_contiguous_free_chunks = last_splayed_node;
+			last_splayed_node = t;
 
 			// Advance splay tracking offsets
 			right_tree_min = t;
@@ -229,7 +233,10 @@ IndexType SplayHeap::Splay(IndexType value, IndexType t)
 			// t is now a maximum value
 			// Link left state tree
 			l._right = t;
-			UpdateNodeStatistics(l);
+
+			// Add node to change list
+			_heap [ t ]._max_contiguous_free_chunks = last_splayed_node;
+			last_splayed_node = t;
 
 			// Advance splay tracking offsets
 			left_tree_max = t;
@@ -244,11 +251,22 @@ IndexType SplayHeap::Splay(IndexType value, IndexType t)
 	auto &l = _heap[left_tree_max];
 	auto &r = _heap[right_tree_min];
 
-	// Rebuild tree from left and right sub trees
+	// Rebuild left and right subtrees
 	l._right = n._left;
-	UpdateNodeStatistics(l);
 	r._left = n._right;
-	UpdateNodeStatistics(r);
+
+	// Update statistics for nodes in changelist
+	while ( last_splayed_node != SPLAY_HEADER_INDEX )
+	{
+		// Remember next item in list
+		auto next = _heap [ last_splayed_node ]._max_contiguous_free_chunks;
+
+		// Update node statistics
+		UpdateNodeStatistics( _heap [ last_splayed_node ] );
+
+		// Go to next item
+		last_splayed_node = next;
+	}
 
 	// Rebuild tree root
 	n._left = _heap[SPLAY_HEADER_INDEX]._right;
@@ -353,7 +371,7 @@ void SplayHeap::Free(DefraggablePointerControlBlock& ptr)
 	const std::ptrdiff_t offset = block_addr - _heap;
 
 	// Is the offset in a valid range
-	if (offset < 0 || offset >= _num_chunks)
+	if ( offset < 0 || offset >= ptrdiff_t( _num_chunks ) )
 		return;
 
 	// Is the data pointer of expected alignment
@@ -538,7 +556,7 @@ bool SplayHeap::IterateHeap()
 }
 void SplayHeap::AssertHeapInvariants() const
 {
-#ifdef _NDEBUG
+#ifdef NDEBUG
 	// We don't want to call this in release code
 	return;
 #endif
@@ -743,9 +761,9 @@ void SplayHeap::AssertHeapInvariants() const
 				}
 
 				// Assert that the cached and calculated maxes are the same
-				//assert(max_contiguous_chunks == _heap[curr]._max_contiguous_free_chunks);
-				if (max_contiguous_chunks != _heap[curr]._max_contiguous_free_chunks)
-					throw std::runtime_error("exec");
+				assert(max_contiguous_chunks == _heap[curr]._max_contiguous_free_chunks);
+				//if (max_contiguous_chunks != _heap[curr]._max_contiguous_free_chunks)
+					//throw std::runtime_error("exec");
 
 				// Push result to max stack
 				max.push_back(max_contiguous_chunks);
