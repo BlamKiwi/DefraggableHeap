@@ -18,8 +18,6 @@
 
 #include <windows.h>
 
-std::vector<std::tuple<int, int>> splay_log;
-
 double GetTiming()
 {
 	LARGE_INTEGER li;
@@ -54,7 +52,7 @@ static const size_t HEAP_SIZE = 1024 * 1024 * 64; // 64MB heap
 static const size_t ALLOC_SIZE = 1024;
 static const size_t CHUNKS = HEAP_SIZE / 16;
 
-static const size_t RUNS = 5;
+static const size_t RUNS = 7;
 static const size_t WARMUP_RUNS = 2;
 
 
@@ -338,13 +336,12 @@ void RandomBenchmark(T& heap)
 	
 	std::mt19937 engine;
 	std::uniform_int_distribution<int> dist(0, 6);
-	static const size_t ITERATIONS = 100000;
+	std::uniform_int_distribution<int> alloc_dist(1, 1024 * 1024);
+	static const size_t ITERATIONS = 1000000;
 
 	auto remove_random_item = [&]()
 	{
 		auto index = std::uniform_int_distribution<int>(0, blas.size() - 1)(engine);
-		//std::cout << "free," << index << std::endl;
-		splay_log.push_back(std::make_tuple(1, index));
 		auto it = blas.begin() + index;
 		heap.Free(*it);
 		blas.erase(it);
@@ -372,19 +369,9 @@ void RandomBenchmark(T& heap)
 			case 2:
 			case 3:
 			{
-				//std::cout << "allocate";
-				splay_log.push_back(std::make_tuple(0, 0));
 				// Allocate some data
-				if (auto alloc = heap.Allocate(ALLOC_SIZE))
-				{
-				//	std::cout << ",success";
+				if (auto alloc = heap.Allocate(alloc_dist(engine)))
 					blas.push_back(std::move(alloc));
-				}
-				else
-				{
-					//std::cout << ",fail";
-				}
-				//std::cout << std::endl;
 				
 			}
 			break;
@@ -400,9 +387,7 @@ void RandomBenchmark(T& heap)
 			}
 			break;
 			case 6:
-				//std::cout << "iterate" << std::endl;
 				// Do a little defragging
-				splay_log.push_back(std::make_tuple(2, 0));
 				heap.IterateHeap();
 			break;
 			}
@@ -436,31 +421,31 @@ int _tmain(int , _TCHAR*[])
 
 		Benchmarks the performance of the Allocate function for the heaps.
 	**/
-	//PureAllocationBenchmark(list);
-	//PureAllocationBenchmark(splay);
+	PureAllocationBenchmark(list);
+	PureAllocationBenchmark(splay);
 
 	/**
 		--- Full Defragmentation Benchmark ---
 
 		Benchmarks the performance of the Fully Defragment function for the heaps.
 	**/
-    //FullDefragBenchmark(list);
-    //FullDefragBenchmark(splay);
+    FullDefragBenchmark(list);
+    FullDefragBenchmark(splay);
 
 	/**
 		--- Pure Free Benchmark ---
 
 		Benchmarks the performance of the Free function for the heaps.
 	**/
-	//PureFreeBenchmark(list);
-	//PureFreeBenchmark(splay);
+	PureFreeBenchmark(list);
+	PureFreeBenchmark(splay);
 
 	/**
 		--- Prime Stride Free Benchmark ---
 
 		Benchmarks the performance of the Free function for the heaps using prime strides.
 	**/
-	//PrimeStrideFreeBenchmark(list);
+	PrimeStrideFreeBenchmark(list);
 	PrimeStrideFreeBenchmark(splay);
 
 	/**
@@ -468,89 +453,16 @@ int _tmain(int , _TCHAR*[])
 
 		Benchmarks the performance of the allocator functions with a stack like access pattern.
 	**/
-	//StackBenchmark(list);
-	//StackBenchmark(splay);
+	StackBenchmark(list);
+	StackBenchmark(splay);
 
 	/**
 		--- Random Benchmark ---
 	
 		Applies random behaviour to the heaps.
 	**/
-	//RandomBenchmark(list);
-	//RandomBenchmark( splay );
-	/*try {
-		
-	}
-	catch (const std::runtime_error& ex)
-	{
-		SplayHeap test(HEAP_SIZE);
-		std::vector<DefraggablePointerControlBlock> blas;
-		blas.reserve(CHUNKS / 2);
-
-		std::reverse(splay_log.begin(), splay_log.end());
-
-		// Get test heap back to state just before failure
-		while (splay_log.size() > 1)
-		{
-			// Pop action off
-			auto res = splay_log.back();
-			splay_log.pop_back();
-
-			switch (std::get<0>(res))
-			{
-			case 0:
-				if (auto alloc = test.Allocate(ALLOC_SIZE))
-				{
-					blas.push_back(std::move(alloc));
-				}
-				break;
-			case 1:
-			{
-				auto index = std::get<1>(res);
-				auto it = blas.begin() + index;
-				test.Free(*it);
-				blas.erase(it);
-			}
-				break;
-			case 2:
-				test.IterateHeap();
-				break;
-			}
-		}
-
-		__debugbreak();
-
-		// Pop action off
-		auto res = splay_log.back();
-		splay_log.pop_back();
-
-		switch (std::get<0>(res))
-		{
-		case 0:
-			if (auto alloc = test.Allocate(ALLOC_SIZE))
-			{
-				blas.push_back(std::move(alloc));
-			}
-			break;
-		case 1:
-		{
-			auto index = std::get<1>(res);
-			auto it = blas.begin() + index;
-			test.Free(*it);
-			blas.erase(it);
-		}
-		break;
-		case 2:
-			test.IterateHeap();
-			break;
-		}
-	}*/
-	/*auto p = splay.Allocate(ALLOC_SIZE);
-	splay.Allocate(ALLOC_SIZE);
-	splay.Allocate(ALLOC_SIZE);
-	splay.Free(p);
-	splay.Allocate(ALLOC_SIZE);
-	splay.Allocate(ALLOC_SIZE);*/
+	RandomBenchmark(list);
+	RandomBenchmark( splay );
 
 	int x;
 	std::cin >> x;
