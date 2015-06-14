@@ -52,7 +52,7 @@ static const size_t HEAP_SIZE = 1024 * 1024 * 64; // 64MB heap
 static const size_t ALLOC_SIZE = 1024;
 static const size_t CHUNKS = HEAP_SIZE / 16;
 
-static const size_t RUNS = 7;
+static const size_t RUNS = 11;
 static const size_t WARMUP_RUNS = 2;
 
 
@@ -334,7 +334,7 @@ void RandomBenchmark(T& heap)
 	std::vector<DefraggablePointerControlBlock> blas;
 	blas.reserve(CHUNKS / 2);
 	
-	std::mt19937 engine;
+	std::mt19937 engine(SEED);
 	std::uniform_int_distribution<int> dist(0, 6);
 	std::uniform_int_distribution<int> alloc_dist(1, 1024 * 1024);
 	static const size_t ITERATIONS = 1000000;
@@ -349,9 +349,7 @@ void RandomBenchmark(T& heap)
 
 	auto pre_benchmark = [&]()
 	{
-		// Reset the random generator
-		new (&engine) std::mt19937();
-		engine.seed(SEED); 
+
 	};
 
 	auto benchmark = [&]()
@@ -367,7 +365,7 @@ void RandomBenchmark(T& heap)
 			case 0:
 			case 1:
 			case 2:
-			case 3:
+			
 			{
 				// Allocate some data
 				if (auto alloc = heap.Allocate(alloc_dist(engine)))
@@ -375,7 +373,7 @@ void RandomBenchmark(T& heap)
 				
 			}
 			break;
-			
+			case 3:
 			case 4:
 			case 5:
 			{
@@ -389,6 +387,7 @@ void RandomBenchmark(T& heap)
 			case 6:
 				// Do a little defragging
 				heap.IterateHeap();
+
 			break;
 			}
 		}
@@ -421,8 +420,8 @@ int _tmain(int , _TCHAR*[])
 
 		Benchmarks the performance of the Allocate function for the heaps.
 	**/
-	PureAllocationBenchmark(list);
-	PureAllocationBenchmark(splay);
+	//PureAllocationBenchmark(list);
+	//PureAllocationBenchmark(splay);
 
 	/**
 		--- Full Defragmentation Benchmark ---
@@ -437,32 +436,32 @@ int _tmain(int , _TCHAR*[])
 
 		Benchmarks the performance of the Free function for the heaps.
 	**/
-	PureFreeBenchmark(list);
-	PureFreeBenchmark(splay);
+	//PureFreeBenchmark(list);
+	//PureFreeBenchmark(splay);
 
 	/**
 		--- Prime Stride Free Benchmark ---
 
 		Benchmarks the performance of the Free function for the heaps using prime strides.
 	**/
-	PrimeStrideFreeBenchmark(list);
-	PrimeStrideFreeBenchmark(splay);
+	//PrimeStrideFreeBenchmark(list);
+	//PrimeStrideFreeBenchmark(splay);
 
 	/**
 		--- Stack Free Benchmark ---
 
 		Benchmarks the performance of the allocator functions with a stack like access pattern.
 	**/
-	StackBenchmark(list);
-	StackBenchmark(splay);
+	//StackBenchmark(list);
+	//StackBenchmark(splay);
 
 	/**
 		--- Random Benchmark ---
 	
 		Applies random behaviour to the heaps.
 	**/
-	RandomBenchmark(list);
-	RandomBenchmark( splay );
+	//RandomBenchmark(list);
+	//RandomBenchmark( splay );
 
 	int x;
 	std::cin >> x;
