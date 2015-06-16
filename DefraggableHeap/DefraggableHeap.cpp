@@ -420,16 +420,16 @@ int _tmain(int , _TCHAR*[])
 
 		Benchmarks the performance of the Allocate function for the heaps.
 	**/
-	//PureAllocationBenchmark(list);
-	//PureAllocationBenchmark(splay);
+	PureAllocationBenchmark(list);
+	PureAllocationBenchmark(splay);
 
 	/**
 		--- Full Defragmentation Benchmark ---
 
 		Benchmarks the performance of the Fully Defragment function for the heaps.
 	**/
-    FullDefragBenchmark(list);
-    FullDefragBenchmark(splay);
+    //FullDefragBenchmark(list);
+    //FullDefragBenchmark(splay);
 
 	/**
 		--- Pure Free Benchmark ---
@@ -462,9 +462,6 @@ int _tmain(int , _TCHAR*[])
 	**/
 	//RandomBenchmark(list);
 	//RandomBenchmark( splay );
-
-	int x;
-	std::cin >> x;
 
 	return 0;
 }
